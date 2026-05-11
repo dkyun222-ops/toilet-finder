@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>화장실 데이터 삭제</title>
+<style>
+  body { font-family: sans-serif; padding: 30px; background: #f0f4f8; }
+  .box { background: white; padding: 28px; border-radius: 16px; max-width: 520px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+  h2 { color: #e74c3c; }
+  .progress { height: 20px; background: #eee; border-radius: 10px; margin: 12px 0; overflow: hidden; }
+  .bar { height: 100%; background: #e74c3c; width: 0%; transition: width 0.3s; border-radius: 10px; }
+  .status { font-size: 14px; color: #555; margin: 8px 0; }
+  input { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-bottom: 10px; }
+  button { color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
+  .btn-search { background: #3498db; }
+  .btn-delete { background: #e74c3c; display:none; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  .warn { color: #e74c3c; font-size: 12px; background: #fff5f5; padding: 8px 12px; border-radius: 8px; margin: 10px 0; }
+  .item-list { margin: 10px 0; max-height: 250px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 8px; }
+  .item { font-size: 13px; padding: 5px 0; border-bottom: 1px solid #f5f5f5; color: #444; }
+  .col-label { display:inline-block; background:#e8f4fd; color:#2980b9; font-size:10px; padding:1px 6px; border-radius:8px; margin-right:4px; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>🗑 화장실 데이터 검색 & 삭제</h2>
+  <p style="font-size:13px;color:#666;">이름으로 검색해서 특정 데이터를 삭제할 수 있어요.</p>
+
+  <input type="text" id="search-input" placeholder="삭제할 화장실 이름 입력 (예: 대륭빌딩)" />
+  <button class="btn-search" onclick="searchData()">🔍 검색</button>
+
+  <div class="progress" style="display:none;" id="progress-bar"><div class="bar" id="bar"></div></div>
+  <div class="status" id="status"></div>
+  <div class="item-list" id="item-list" style="display:none;"></div>
+  <button class="btn-delete" id="btn-delete" onclick="deleteFound()">🗑 검색된 항목 모두 삭제</button>
+  
+  <hr style="margin:20px 0; border:none; border-top:1px solid #eee;">
+  
+  <h3 style="color:#e74c3c;font-size:15px;">⚠️ toilets 컬렉션 전체 삭제</h3>
+  <button class="btn-delete" style="display:block;" onclick="deleteAllUserToilets()">🗑 사용자 등록 화장실 전체 삭제</button>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, getDocs, deleteDoc, doc, query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD-wCqbaDy-MgDn2tK8zIxJR6kYcPehYcw",
+  authDomain: "toilet-finder-d4233.firebaseapp.com",
+  projectId: "toilet-finder-d4233",
+  storageBucket: "toilet-finder-d4233.firebasestorage.app",
+  messagingSenderId: "630778274308",
+  appId: "1:630778274308:web:3fe98d6393628c8a450b51"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let foundDocs = [];
+
+window.searchData = async function() {
+  const keyword = document.getElementById('search-input').value.trim();
+  if (!keyword) { alert('검색어를 입력하세요'); return; }
+
+  const status = document.getElementById('status');
+  const itemList = document.getElementById('item-list');
+  status.textContent = '🔍 검색 중...';
+  foundDocs = [];
+
+  // toilets + public_toilets 두 컬렉션 모두 검색
+  const cols = ['toilets', 'public_toilets'];
+  for (const col of cols) {
+    const snap = await getDocs(collection(db, col));
+    snap.forEach(d => {
+      const data = d.data();
+      if (data.name && data.name.includes(keyword)) {
+        foundDocs.push({ docId: d.id, col, ...data });
+      }
+    });
+  }
+
+  if (foundDocs.length === 0) {
+    status.textContent = `"${keyword}" 검색 결과 없음`;
+    itemList.style.display = 'none';
+    document.getElementById('btn-delete').style.display = 'none';
+    return;
+  }
+
+  status.textContent = `총 ${foundDocs.length}개 발견`;
+  itemList.style.display = 'block';
+  itemList.innerHTML = foundDocs.map(t =>
+    `<div class="item"><span class="col-label">${t.col}</span>🚻 ${t.name}</div>`
+  ).join('');
+  document.getElementById('btn-delete').style.display = 'block';
+};
+
+window.deleteFound = async function() {
+  if (!foundDocs.length) return;
+  if (!confirm(`${foundDocs.length}개를 삭제할까요?`)) return;
+
+  const bar = document.getElementById('bar');
+  const status = document.getElementById('status');
+  document.getElementById('progress-bar').style.display = 'block';
+
+  let deleted = 0;
+  for (const t of foundDocs) {
+    await deleteDoc(doc(db, t.col, t.docId));
+    deleted++;
+    bar.style.width = Math.round(deleted / foundDocs.length * 100) + '%';
+  }
+
+  status.textContent = `✅ ${deleted}개 삭제 완료!`;
+  status.style.color = '#00c896';
+  document.getElementById('item-list').style.display = 'none';
+  document.getElementById('btn-delete').style.display = 'none';
+};
+
+window.deleteAllUserToilets = async function() {
+  if (!confirm('사용자가 등록한 모든 화장실을 삭제할까요?')) return;
+
+  const status = document.getElementById('status');
+  const bar = document.getElementById('bar');
+  document.getElementById('progress-bar').style.display = 'block';
+  status.textContent = '삭제 중...';
+
+  const snap = await getDocs(collection(db, 'toilets'));
+  const docs = [];
+  snap.forEach(d => docs.push(d.id));
+
+  let deleted = 0;
+  for (const id of docs) {
+    await deleteDoc(doc(db, 'toilets', id));
+    deleted++;
+    bar.style.width = Math.round(deleted / docs.length * 100) + '%';
+    status.textContent = `${deleted} / ${docs.length}개 삭제 중...`;
+  }
+
+  status.textContent = `✅ ${deleted}개 삭제 완료!`;
+  status.style.color = '#00c896';
+};
+</script>
+</body>
+</html>

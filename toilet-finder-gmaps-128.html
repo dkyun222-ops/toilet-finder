@@ -1,0 +1,2693 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>🚻 화장실 찾기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --teal: #00c896;
+    --teal-dark: #009e76;
+    --orange: #ff7043;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --muted: #8892a4;
+    --border: #e8ecf2;
+    --shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--card);
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    z-index: 100;
+    position: relative;
+  }
+  .header-logo { font-size: 26px; }
+  .header-title { flex: 1; }
+  .header-title h1 { font-size: 17px; font-weight: 900; color: var(--teal-dark); letter-spacing: -0.5px; }
+  .header-title p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .btn-add {
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 22px;
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 3px 10px rgba(0,200,150,0.35);
+    transition: all 0.2s;
+  }
+  .btn-add:active { transform: scale(0.95); }
+
+  /* FILTER BAR */
+  .filter-bar {
+    background: var(--card);
+    padding: 8px 14px;
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .filter-chip.active {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: white;
+  }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    position: relative;
+  }
+  #map-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* FAB current location */
+  .fab-location {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    background: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: transform 0.2s;
+  }
+  .fab-location:active { transform: scale(0.9); }
+
+  /* BOTTOM SHEET */
+  .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.15);
+    z-index: 200;
+    transform: translateY(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .bottom-sheet.open { transform: translateY(0); }
+  .sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+  .sheet-content { padding: 16px 20px calc(40px + env(safe-area-inset-bottom, 0px)); }
+  .sheet-title {
+    font-size: 17px;
+    font-weight: 900;
+    margin-bottom: 16px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* DETAIL SHEET */
+  .detail-name { font-size: 18px; font-weight: 900; margin-bottom: 8px; }
+  .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tag {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tag-type { background: rgba(0,200,150,0.12); color: var(--teal-dark); }
+  .tag-accessible { background: rgba(0,150,255,0.12); color: #0096ff; }
+  .tag-api { background: rgba(255,140,0,0.12); color: #e67e00; font-weight: 800; }
+  .user-rating-row { display: flex; gap: 6px; margin: 10px 0 6px; align-items: center; }
+  .user-star-btn {
+    font-size: 26px; background: none; border: none; cursor: pointer;
+    padding: 2px; transition: transform 0.15s; line-height: 1;
+    filter: grayscale(1) opacity(0.4);
+  }
+  .user-star-btn.on { filter: none; transform: scale(1.1); }
+  .rating-count { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  .rating-avg { font-size: 14px; font-weight: 800; color: #ffc107; }
+  .stars { color: #ffc107; font-size: 18px; margin-bottom: 8px; }
+  .detail-notes {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .detail-meta { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+  .btn-nav {
+    width: 100%;
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  .btn-delete {
+    width: 100%;
+    background: none;
+    color: #ff4444;
+    border: 1.5px solid #ffcccc;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+  }
+
+  /* ADD FORM */
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--teal); }
+  .form-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--text);
+    outline: none;
+    appearance: none;
+  }
+  .rating-row { display: flex; gap: 8px; }
+  .star-btn {
+    width: 40px; height: 40px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .star-btn.on { background: #fff8e1; border-color: #ffc107; }
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .check-row input { width: 18px; height: 18px; accent-color: var(--teal); }
+  .location-indicator {
+    background: rgba(0,200,150,0.08);
+    border: 1.5px solid rgba(0,200,150,0.3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--teal-dark);
+    font-weight: 600;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .location-indicator.empty {
+    background: rgba(255,100,0,0.06);
+    border-color: rgba(255,100,0,0.25);
+    color: var(--orange);
+  }
+  .btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--teal), var(--teal-dark));
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 900;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,200,150,0.35);
+    margin-top: 6px;
+  }
+  .btn-cancel {
+    width: 100%;
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    color: var(--muted);
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .error-msg { color: var(--orange); font-size: 12px; margin-top: 6px; font-weight: 600; }
+
+  /* OVERLAY */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: all; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--text);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 22px;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 500;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* COUNT BADGE */
+  .count-badge {
+    background: var(--teal);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+  }
+
+  /* Add mode banner */
+  .add-banner {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,112,67,0.95);
+    color: white;
+    padding: 9px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 10;
+    display: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(255,112,67,0.4);
+  }
+  .add-banner.show { display: block; }
+
+  /* NAV */
+  nav {
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 6px 0 calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 100;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 0;
+  }
+  .nav-btn .nav-icon { font-size: 22px; }
+  .nav-btn .nav-label { font-size: 10px; font-weight: 700; font-family: 'Noto Sans KR', sans-serif; color: var(--muted); }
+  .nav-btn.active {
+    background: linear-gradient(135deg, #e0f4ff 0%, #b8e4ff 100%);
+    border-radius: 14px;
+    margin: 4px 8px;
+  }
+  .nav-btn.active .nav-label { color: #1a7abf; font-weight: 900; }
+  .nav-btn.active .nav-icon { filter: saturate(2) brightness(0.85); }
+
+  /* LIST VIEW */
+  .list-view {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg);
+    -webkit-overflow-scrolling: touch;
+  }
+  .list-view.show { display: flex; }
+  .list-search {
+    padding: 12px 16px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  .list-search input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px 10px 36px;
+    font-size: 14px;
+    font-family: 'Noto Sans KR', sans-serif;
+    outline: none;
+  }
+  .list-search { position: relative; }
+  .search-icon {
+    position: absolute;
+    top: 50%;
+    left: 28px;
+    transform: translateY(-50%);
+    font-size: 16px;
+    pointer-events: none;
+  }
+  .list-items { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .list-card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: transform 0.15s;
+    border: 1px solid var(--border);
+  }
+  .list-card:active { transform: scale(0.98); }
+  .list-card-name { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+  .list-card-row { display: flex; justify-content: space-between; align-items: center; }
+  .list-card-stars { color: #ffc107; font-size: 13px; }
+  .list-card-time { font-size: 11px; color: var(--muted); }
+  .list-card-notes { font-size: 12px; color: #888; margin-top: 6px; }
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+  #report-popup { display: none; }
+  #report-popup.show { display: flex !important; }
+
+  /* 댓글 시스템 */
+  .review-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .review-title { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .review-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .review-input {
+    flex: 1; background: var(--bg); border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-size: 13px;
+    font-family: 'Noto Sans KR', sans-serif; color: var(--text); outline: none;
+    resize: none; min-height: 40px;
+  }
+  .review-input:focus { border-color: var(--teal); }
+  .review-submit-btn {
+    background: var(--teal); color: white; border: none;
+    border-radius: 10px; padding: 10px 14px; font-size: 13px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .review-item {
+    background: var(--bg); border-radius: 10px; padding: 10px 12px;
+    margin-bottom: 8px; border: 1px solid var(--border);
+  }
+  .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .review-author { font-size: 12px; font-weight: 700; color: var(--teal-dark); }
+  .review-time { font-size: 11px; color: var(--muted); }
+  .review-stars { color: #ffc107; font-size: 12px; margin-bottom: 4px; }
+  .review-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .review-empty { text-align: center; padding: 16px; font-size: 13px; color: var(--muted); }
+  .review-load-more { width: 100%; background: none; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px; font-size: 12px; color: var(--muted); cursor: pointer; margin-top: 4px; font-family: 'Noto Sans KR', sans-serif; }
+  .toilet-paper-row { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .tp-btn {
+    flex: 1; padding: 8px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--bg); font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif; color: var(--muted);
+    transition: all 0.2s; text-align: center;
+  }
+  .tp-btn.active-yes { background: #e8f8f0; border-color: #00c896; color: #00a070; }
+  .tp-btn.active-no { background: #fff0f0; border-color: #ff6b6b; color: #cc4444; }
+  .tp-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 5px; }
+  .review-actions { display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end; }
+  .review-edit-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; }
+  .review-delete-btn { background: none; border: 1px solid #ffcccc; border-radius: 6px; padding: 3px 8px; font-size: 11px; color: #ff6b6b; cursor: pointer; font-family: 'Noto Sans KR', sans-serif; }
+  .review-edit-area { margin-top: 8px; display: none; }
+  .review-edit-input { width: 100%; background: var(--bg); border: 1.5px solid var(--teal); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: 'Noto Sans KR', sans-serif; resize: none; box-sizing: border-box; }
+  .review-edit-btns { display: flex; gap: 6px; margin-top: 6px; }
+  .review-save-btn { flex: 1; background: var(--teal); color: white; border: none; border-radius: 8px; padding: 8px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Noto Sans KR', sans-serif; }
+  .review-cancel-btn { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; color: var(--muted); cursor: pointer; font-family: 'Noto Sans KR', sans-serif; }
+  .lang-btn {
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: 'Noto Sans KR', sans-serif;
+    transition: all 0.2s;
+  }
+  .lang-btn.active {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: white;
+  }
+  .lang-selector {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  /* 로딩 화면 */
+  #loading-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(160deg, #0a1628 0%, #0d2044 50%, #0a1628 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 0.5s ease;
+  }
+  #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+  .loading-logo {
+    font-size: 72px; margin-bottom: 20px;
+    animation: logoPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes logoPulse {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(0,200,150,0.5)); }
+    50% { transform: scale(1.1); filter: drop-shadow(0 0 25px rgba(0,200,150,0.9)); }
+  }
+  .loading-title {
+    font-size: 26px; font-weight: 900; color: white;
+    letter-spacing: -0.5px; margin-bottom: 6px;
+  }
+  .loading-subtitle {
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    margin-bottom: 48px;
+  }
+  .loading-bar-wrap {
+    width: 240px; background: rgba(255,255,255,0.1);
+    border-radius: 20px; height: 6px; overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .loading-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #00c896, #00e8b0);
+    border-radius: 20px;
+    transition: width 0.4s ease;
+    box-shadow: 0 0 10px rgba(0,200,150,0.6);
+  }
+  .loading-status {
+    font-size: 12px; color: rgba(255,255,255,0.5);
+    min-height: 18px; text-align: center;
+  }
+  .loading-dots { display: inline-block; }
+  .loading-dots::after {
+    content: ''; animation: dots 1.2s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%,20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%,100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 로딩 화면 -->
+<div id="loading-screen">
+  <div class="loading-logo">🚻</div>
+  <div class="loading-title">화장실 찾기</div>
+  <div class="loading-subtitle">Find Restroom · 寻找厕所</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar-fill" id="loading-bar"></div>
+  </div>
+  <div class="loading-status" id="loading-status">
+    <span class="loading-dots">데이터 불러오는 중</span>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <span class="header-logo">🚻</span>
+  <div class="header-title">
+    <h1 id="app-title">화장실 찾기</h1>
+    <p id="count-label">데이터 로딩 중...</p>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+    <div class="lang-selector">
+      <button class="lang-btn active" onclick="setLang('ko')">한국어</button>
+      <button class="lang-btn" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('zh')">中文</button>
+    </div>
+    <button class="btn-add" id="btn-add" onclick="openAddSheet()">
+      <span>+</span> <span id="btn-add-text">등록</span>
+    </button>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filter-bar" id="filter-bar">
+  <button class="filter-chip active" id="fc-all" onclick="setFilter('전체', this)">전체</button>
+  <button class="filter-chip" id="fc-public" onclick="setFilter('공공', this)">공공</button>
+  <button class="filter-chip" id="fc-commercial" onclick="setFilter('상업시설', this)">상업시설</button>
+  <button class="filter-chip" id="fc-park" onclick="setFilter('공원', this)">공원</button>
+  <button class="filter-chip" id="fc-subway" onclick="setFilter('지하철', this)">지하철</button>
+  <button class="filter-chip" id="fc-etc" onclick="setFilter('기타', this)">기타</button>
+  <button class="filter-chip" id="fc-rating" onclick="toggleRatingFilter(this)" style="color:#ffc107;border-color:#ffc107;">★ 4점+</button>
+</div>
+
+<!-- MAP VIEW -->
+<div id="map" style="flex:1; position:relative; display:flex; flex-direction:column;">
+  <div id="map-canvas" style="flex:1;"></div>
+  <div class="add-banner" id="add-banner">📍 지도를 탭해서 위치를 선택하세요</div>
+  <div style="position:absolute;bottom:160px;right:16px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:3px;">
+  <button class="fab-location" style="position:static;bottom:auto;right:auto;" onclick="goToMyLocation()" title="내 위치">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="8" fill="#d0e8ff" opacity="0.8"/>
+      <circle cx="12" cy="12" r="5" fill="white" stroke="white" stroke-width="1"/>
+      <circle cx="12" cy="12" r="3.5" fill="#1a73e8"/>
+    </svg>
+  </button>
+  <span id="my-location-label" style="font-size:10px;font-weight:700;color:#444;background:white;padding:2px 6px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.2);white-space:nowrap;">내 위치</span>
+</div>
+</div>
+
+<!-- LIST VIEW -->
+<div class="list-view" id="list-view">
+  <div class="list-search">
+    <span class="search-icon">🔍</span>
+    <input type="text" placeholder="화장실 이름 검색..." oninput="renderList(this.value)" id="search-input" data-placeholder-ko="화장실 이름 검색..." data-placeholder-en="Search toilet name..." data-placeholder-zh="搜索厕所名称...">
+  </div>
+  <div class="list-items" id="list-items"></div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <button class="nav-btn active" id="nav-map" onclick="switchView('map')">
+    <span class="nav-icon">🗺️</span>
+    <span class="nav-label" id="nav-label-map">지도</span>
+  </button>
+  <button class="nav-btn" id="nav-list" onclick="switchToList()">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label" id="nav-label-list">목록</span>
+  </button>
+</nav>
+
+<!-- OVERLAY -->
+<div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+<!-- DETAIL SHEET -->
+<div class="bottom-sheet" id="detail-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-content">
+    <div class="detail-name" id="d-name"></div>
+    <div class="detail-tags" id="d-tags"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+      <div class="stars" id="d-stars"></div>
+      <span class="rating-count" id="d-rating-count"></span>
+    </div>
+    <!-- 사용자 별점 주기 -->
+    <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;" id="rate-label">청결도 평가하기</div>
+      <div class="user-rating-row" id="user-rating-row">
+        <button class="user-star-btn" onclick="submitUserRating(1)">⭐</button>
+        <button class="user-star-btn" onclick="submitUserRating(2)">⭐</button>
+        <button class="user-star-btn" onclick="submitUserRating(3)">⭐</button>
+        <button class="user-star-btn" onclick="submitUserRating(4)">⭐</button>
+        <button class="user-star-btn" onclick="submitUserRating(5)">⭐</button>
+      </div>
+      <div id="user-rated-msg" style="font-size:12px;color:var(--teal);font-weight:700;display:none;">✅ 평가해주셔서 감사합니다!</div>
+    </div>
+    <div class="detail-notes" id="d-notes"></div>
+    <div class="detail-meta" id="d-meta"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;"><button class="btn-nav" style="flex:1;margin-bottom:0;background:#FEE500;color:#3C1E1E;font-weight:900;" onclick="openKakaoNav()"><span id="btn-kakao-text">🗺️ 카카오맵</span></button><button class="btn-nav" style="flex:1;margin-bottom:0;" onclick="openGoogleMapsNav()"><span id="btn-google-text">🌐 구글맵</span></button></div>
+    <button class="btn-delete" id="d-report-btn" onclick="reportToilet()" style="background:none;border:1.5px solid #ffcccc;color:#ff6b6b;margin-top:4px;">
+      ⚠️ <span id="btn-report-text">존재하지 않음 신고</span> <span id="d-report-count" style="font-size:11px;opacity:0.7;"></span>
+    </button>
+
+    <!-- 댓글/후기 섹션 -->
+    <div class="review-section">
+      <div class="review-title" style="justify-content:space-between;">
+        <span>💬 이용 후기 <span id="review-count" style="color:var(--muted);font-weight:400;font-size:12px;"></span></span>
+
+      </div>
+      <div class="tp-label" id="tp-label">🧻 휴지 비치 여부</div>
+      <div class="toilet-paper-row">
+        <button class="tp-btn" id="tp-yes" onclick="setToiletPaper('yes')">🧻 있음</button>
+        <button class="tp-btn" id="tp-no" onclick="setToiletPaper('no')">❌ 없음</button>
+        <button class="tp-btn" id="tp-na" onclick="setToiletPaper('na')" style="flex:0.7;">모름</button>
+      </div>
+      <div class="review-input-row">
+        <textarea class="review-input" id="review-input" placeholder="화장실 이용 후기를 남겨주세요..." rows="2"></textarea>
+        <button class="review-submit-btn" onclick="submitReview()">등록</button>
+      </div>
+      <div id="review-list">
+        <div class="review-empty">후기를 불러오는 중...</div>
+      </div>
+      <button class="review-load-more" id="review-load-more" onclick="loadMoreReviews()" style="display:none;">더보기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 앱 종료 확인 팝업 -->
+<div id="exit-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:20px;padding:28px 24px;max-width:300px;width:88%;margin:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.25);">
+    <div style="font-size:36px;margin-bottom:12px;">🚻</div>
+    <div style="font-size:16px;font-weight:900;margin-bottom:8px;">화장실 찾기를 종료할까요?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:22px;">앱을 종료하시겠습니까?</div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cancelExit()" style="flex:1;background:#f0f4f8;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;color:#555;">아니오</button>
+      <button onclick="confirmExit()" style="flex:1;background:#ff6b6b;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;color:white;">예</button>
+    </div>
+  </div>
+</div>
+
+<!-- 신고 확인 팝업 -->
+<div id="report-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:20px;padding:28px 24px;max-width:320px;width:90%;margin:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+    <div style="font-size:40px;margin-bottom:12px;">🚫</div>
+    <div style="font-size:17px;font-weight:900;margin-bottom:8px;" id="popup-title">화장실이 없나요?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;line-height:1.6;" id="popup-desc">이 화장실이 실제로 존재하지 않는다면 신고해 주세요. 5명 이상 신고 시 자동으로 삭제됩니다.</div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="document.getElementById('report-popup').style.display='none'" style="flex:1;background:var(--bg);border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;color:var(--muted);">취소</button>
+      <button onclick="confirmReport()" style="flex:1;background:#ff6b6b;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;color:white;">신고하기</button>
+    </div>
+  </div>
+</div>
+  </div>
+</div>
+
+<!-- ADD SHEET -->
+<div class="bottom-sheet" id="add-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-content">
+    <div class="sheet-title" id="form-title">🚻 새 화장실 등록</div>
+
+    <div id="loc-indicator" class="location-indicator empty">
+      <span id="loc-hint-text">📍 지도에서 위치를 먼저 탭하세요</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">이름 *</label>
+      <input class="form-input" id="f-name" type="text" placeholder="예: 홍대입구역 공중화장실">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">종류</label>
+      <select class="form-select" id="f-type">
+        <option>공공</option>
+        <option>상업시설</option>
+        <option>공원</option>
+        <option>지하철</option>
+        <option>기타</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">청결도</label>
+      <div class="rating-row" id="rating-row">
+        <button class="star-btn on" onclick="setRating(1)">⭐</button>
+        <button class="star-btn on" onclick="setRating(2)">⭐</button>
+        <button class="star-btn on" onclick="setRating(3)">⭐</button>
+        <button class="star-btn on" onclick="setRating(4)">⭐</button>
+        <button class="star-btn" onclick="setRating(5)">⭐</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="check-row">
+        <input type="checkbox" id="f-accessible">
+        <span style="font-size:14px; font-weight:600;">♿ 장애인 접근 가능</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">메모</label>
+      <textarea class="form-input" id="f-notes" rows="2" placeholder="운영 시간, 위치 설명 등"></textarea>
+    </div>
+
+    <div class="error-msg" id="form-error"></div>
+
+    <button class="btn-submit" onclick="submitToilet()">✓ 등록하기</button>
+    <button class="btn-cancel" onclick="closeAllSheets()">취소</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────
+const MAPS_API_KEY = "AIzaSyASSBx5OHwZIfhNIwLE0mlLS8bf0fwWZiI";
+const STORAGE_KEY = "toilet-finder-v2";
+const GG_API_KEY = "a42b3d609a304c8098c11b3543258997";
+const GG_API_URL = "https://openapi.gg.go.kr/PublicToiletHc";
+
+
+
+// ─── 로딩 화면 ──────────────────────────────────────────
+function setLoadingProgress(pct, msg) {
+  const bar = document.getElementById('loading-bar');
+  const status = document.getElementById('loading-status');
+  if (bar) bar.style.width = pct + '%';
+  if (status) status.innerHTML = msg || '';
+}
+
+function hideLoadingScreen() {
+  const screen = document.getElementById('loading-screen');
+  if (!screen) return;
+  screen.classList.add('fade-out');
+  setTimeout(() => { screen.style.display = 'none'; }, 500);
+}
+
+// ─── 다국어 지원 ──────────────────────────────────────
+let currentLang = 'ko';
+
+const TRANSLATIONS = {
+  ko: {
+    appTitle: '화장실 찾기',
+    loading: '데이터 로딩 중...',
+    register: '등록',
+    filterAll: '전체',
+    filterPublic: '공공',
+    filterCommercial: '상업시설',
+    filterPark: '공원',
+    filterSubway: '지하철',
+    filterMall: '쇼핑몰',
+    filterEtc: '기타',
+    filterRating: '★ 4점+',
+    navMap: '지도',
+    navList: '목록',
+    myLocation: '내 위치',
+    searchPlaceholder: '화장실 이름 검색...',
+    kakaoNav: '🗺️ 카카오맵',
+    googleNav: '🌐 구글맵',
+    delete: '삭제',
+    formTitle: '🚻 새 화장실 등록',
+    locHint: '📍 지도에서 위치를 먼저 탭하세요',
+    locSelected: '✅ 위치 선택됨',
+    nameLabel: '이름 *',
+    namePlaceholder: '예: 홍대입구역 공중화장실',
+    typeLabel: '종류',
+    ratingLabel: '청결도',
+    accessibleLabel: '♿ 장애인 접근 가능',
+    notesLabel: '메모',
+    notesPlaceholder: '운영 시간, 위치 설명 등',
+    submitBtn: '✓ 등록하기',
+    cancelBtn: '취소',
+    errName: '⚠ 이름을 입력하세요',
+    errLocation: '⚠ 지도를 탭해서 위치를 선택하세요',
+    registered: '✅ 화장실이 등록되었습니다!',
+    deleted: '🗑 삭제되었습니다',
+    addBanner: '📍 지도를 탭해서 위치를 선택하세요',
+    accessible: '접근 가능',
+    addedBy: '등록자',
+    viewportBadge: '🗺️ 현재 지도 화면의 화장실',
+    locationHint: '📍 지도 화면에서 위치 버튼을 누르면 가까운 순으로 정렬돼요',
+    emptyState: '이 지역에 등록된 화장실이 없습니다',
+    locating: '📍 위치 확인 중...',
+    locSorted: '📍 내 위치 기준으로 정렬됩니다',
+    locPermission: '위치 접근 권한이 필요합니다',
+    dataLoaded: '✅ %n개 로드 완료!',
+    nearbyLoaded: '📍 주변 %n개 화장실 로드',
+    types: { '공공': '공공', '상업시설': '상업시설', '공원': '공원', '지하철': '지하철', '쇼핑몰': '쇼핑몰', '기타': '기타' }
+  },
+  en: {
+    appTitle: 'Find Restroom',
+    loading: 'Loading data...',
+    register: 'Add',
+    filterAll: 'All',
+    filterPublic: 'Public',
+    filterCommercial: 'Commercial',
+    filterPark: 'Park',
+    filterSubway: 'Subway',
+    filterMall: 'Mall',
+    filterEtc: 'Other',
+    filterRating: '★ 4★+',
+    navMap: 'Map',
+    navList: 'List',
+    myLocation: 'My Location',
+    searchPlaceholder: 'Search restroom name...',
+    kakaoNav: '🗺️ Kakao Map',
+    googleNav: '🌐 Google Map',
+    delete: 'Delete',
+    formTitle: '🚻 Add New Restroom',
+    locHint: '📍 Tap the map to select location',
+    locSelected: '✅ Location selected',
+    nameLabel: 'Name *',
+    namePlaceholder: 'e.g. Hongdae Station Restroom',
+    typeLabel: 'Type',
+    ratingLabel: 'Cleanliness',
+    accessibleLabel: '♿ Wheelchair Accessible',
+    notesLabel: 'Notes',
+    notesPlaceholder: 'Hours, location details, etc.',
+    submitBtn: '✓ Submit',
+    cancelBtn: 'Cancel',
+    errName: '⚠ Please enter a name',
+    errLocation: '⚠ Please tap the map to select location',
+    registered: '✅ Restroom registered!',
+    deleted: '🗑 Deleted',
+    addBanner: '📍 Tap the map to select location',
+    accessible: 'Accessible',
+    addedBy: 'Added by',
+    viewportBadge: '🗺️ Restrooms in current view',
+    locationHint: '📍 Press location button to sort by distance',
+    emptyState: 'No restrooms found in this area',
+    locating: '📍 Getting location...',
+    locSorted: '📍 Sorted by your location',
+    locPermission: 'Location permission required',
+    dataLoaded: '✅ %n loaded!',
+    nearbyLoaded: '📍 %n nearby restrooms loaded',
+    types: { '공공': 'Public', '상업시설': 'Commercial', '공원': 'Park', '지하철': 'Subway', '쇼핑몰': 'Mall', '기타': 'Other' }
+  },
+  zh: {
+    appTitle: '寻找厕所',
+    loading: '加载数据中...',
+    register: '添加',
+    filterAll: '全部',
+    filterPublic: '公共',
+    filterCommercial: '商业',
+    filterPark: '公园',
+    filterSubway: '地铁',
+    filterMall: '购物中心',
+    filterEtc: '其他',
+    filterRating: '★ 4分+',
+    navMap: '地图',
+    navList: '列表',
+    myLocation: '我的位置',
+    searchPlaceholder: '搜索厕所名称...',
+    kakaoNav: '🗺️ 카카오地图',
+    googleNav: '🌐 谷歌地图',
+    delete: '删除',
+    formTitle: '🚻 添加新厕所',
+    locHint: '📍 请点击地图选择位置',
+    locSelected: '✅ 已选择位置',
+    nameLabel: '名称 *',
+    namePlaceholder: '例：弘大入口站厕所',
+    typeLabel: '类型',
+    ratingLabel: '清洁度',
+    accessibleLabel: '♿ 无障碍设施',
+    notesLabel: '备注',
+    notesPlaceholder: '开放时间、位置说明等',
+    submitBtn: '✓ 提交',
+    cancelBtn: '取消',
+    errName: '⚠ 请输入名称',
+    errLocation: '⚠ 请点击地图选择位置',
+    registered: '✅ 厕所已登记！',
+    deleted: '🗑 已删除',
+    addBanner: '📍 请点击地图选择位置',
+    accessible: '无障碍',
+    addedBy: '添加者',
+    viewportBadge: '🗺️ 当前地图范围内的厕所',
+    locationHint: '📍 按位置按钮可按距离排序',
+    emptyState: '该地区没有登记的厕所',
+    locating: '📍 正在获取位置...',
+    locSorted: '📍 已按您的位置排序',
+    locPermission: '需要位置访问权限',
+    dataLoaded: '✅ 已加载 %n 个！',
+    nearbyLoaded: '📍 已加载附近 %n 个厕所',
+    types: { '공공': '公共', '상업시설': '商业', '공원': '公园', '지하철': '地铁', '쇼핑몰': '购物中心', '기타': '其他' }
+  }
+};
+
+function t(key) {
+  return TRANSLATIONS[currentLang][key] || TRANSLATIONS['ko'][key] || key;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('toilet-finder-lang', lang);
+
+  // 언어 버튼 active 상태
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  const langMap = { ko: 0, en: 1, zh: 2 };
+  document.querySelectorAll('.lang-btn')[langMap[lang]].classList.add('active');
+
+  applyTranslations();
+}
+
+function applyTranslations() {
+  const L = TRANSLATIONS[currentLang];
+
+  // 헤더
+  document.getElementById('app-title').textContent = L.appTitle;
+  document.getElementById('btn-add-text').textContent = L.register;
+
+  // 필터
+  document.getElementById('fc-all').textContent = L.filterAll;
+  document.getElementById('fc-public').textContent = L.filterPublic;
+  document.getElementById('fc-commercial').textContent = L.filterCommercial;
+  document.getElementById('fc-park').textContent = L.filterPark;
+  document.getElementById('fc-subway').textContent = L.filterSubway;
+  document.getElementById('fc-etc').textContent = L.filterEtc;
+  const fcRating = document.getElementById('fc-rating');
+  if (fcRating) fcRating.textContent = L.filterRating || '★ 4점+';
+
+  // 네비
+  document.getElementById('nav-label-map').textContent = L.navMap;
+  document.getElementById('nav-label-list').textContent = L.navList;
+  document.getElementById('my-location-label').textContent = L.myLocation;
+
+  // 검색
+  document.getElementById('search-input').placeholder = L.searchPlaceholder;
+
+  // 상세보기
+  if (document.getElementById('btn-kakao-text')) document.getElementById('btn-kakao-text').textContent = L.kakaoNav;
+  if (document.getElementById('btn-google-text')) document.getElementById('btn-google-text').textContent = L.googleNav;
+  if (document.getElementById('btn-delete-text')) document.getElementById('btn-delete-text').textContent = L.delete;
+
+  // 등록폼
+  document.getElementById('form-title').textContent = L.formTitle;
+
+  // 폼 라벨들
+  const labels = document.querySelectorAll('.form-label');
+  if (labels[0]) labels[0].textContent = L.nameLabel;
+  if (labels[1]) labels[1].textContent = L.typeLabel;
+  if (labels[2]) labels[2].textContent = L.ratingLabel;
+  if (labels[3]) labels[3].textContent = L.notesLabel;
+
+  document.getElementById('f-name').placeholder = L.namePlaceholder;
+  const notesEl = document.getElementById('f-notes');
+  if (notesEl) notesEl.placeholder = L.notesPlaceholder;
+
+  // 장애인 체크박스
+  const accLabel = document.querySelector('.check-row span');
+  if (accLabel) accLabel.textContent = L.accessibleLabel;
+
+  // 버튼들
+  const submitBtn = document.querySelector('.btn-submit');
+  if (submitBtn) submitBtn.textContent = L.submitBtn;
+  const cancelBtn = document.querySelector('.btn-cancel');
+  if (cancelBtn) cancelBtn.textContent = L.cancelBtn;
+
+  // 목록 다시 렌더
+  if (document.getElementById('list-view').classList.contains('show')) {
+    renderList(document.getElementById('search-input').value);
+  }
+
+  // 현재 후기가 표시 중이면 재번역
+  if (currentReviews.length > 0) {
+    if (lang === 'ko') {
+      renderReviews(currentReviews.slice(0, reviewPage * REVIEWS_PER_PAGE));
+    } else {
+      setTimeout(() => translateAllReviews(), 200);
+    }
+  }
+}
+
+
+
+// ─── 한국어 로마자/병음 변환 ────────────────────────────
+const CHOSUNG = ['g','kk','n','d','tt','r','m','b','pp','s','ss','','j','jj','ch','k','t','p','h'];
+const JUNGSUNG = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+const JONGSUNG = ['','g','kk','gs','n','nj','nh','d','l','lg','lm','lb','ls','lt','lp','lh','m','b','bs','s','ss','ng','j','ch','k','t','p','h'];
+
+function koreanToRoman(str) {
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i) - 0xAC00;
+    if (code < 0 || code > 11171) {
+      // 한글 아닌 문자는 그대로
+      result += str[i];
+      continue;
+    }
+    const cho = Math.floor(code / 21 / 28);
+    const jung = Math.floor((code % (21 * 28)) / 28);
+    const jong = code % 28;
+    result += CHOSUNG[cho] + JUNGSUNG[jung] + JONGSUNG[jong];
+  }
+  return result.charAt(0).toUpperCase() + result.slice(1);
+}
+
+// 중국어용 한국어 발음 (가나다 순 주요 음절 매핑)
+const KO_TO_PINYIN = {
+  '가':'가','강':'江','개':'개','거':'거','건':'건','겸':'겸','경':'京','고':'고','공':'公',
+  '과':'과','관':'관','광':'光','교':'교','구':'구','국':'국','군':'군','궁':'宫','권':'권',
+  '길':'길','김':'金','나':'나','남':'南','내':'내','노':'노','다':'다','단':'단','달':'달',
+  '대':'大','도':'道','동':'東','두':'두','락':'락','로':'路','리':'里','마':'마','면':'면',
+  '명':'明','목':'목','문':'文','미':'미','민':'民','바':'바','반':'반','방':'방','배':'배',
+  '백':'백','번':'번','벌':'벌','별':'별','복':'福','봉':'봉','부':'釜','북':'北','사':'사',
+  '산':'山','삼':'三','상':'上','새':'새','서':'西','석':'石','선':'선','성':'城','세':'세',
+  '소':'小','송':'송','수':'水','숲':'숲','시':'市','신':'新','아':'아','안':'안','야':'야',
+  '양':'양','역':'역','연':'연','영':'영','오':'오','용':'龍','우':'우','원':'院','월':'월',
+  '위':'위','유':'유','은':'은','이':'이','인':'仁','일':'日','자':'자','장':'장','전':'全',
+  '정':'정','제':'제','조':'조','종':'종','주':'州','중':'中','지':'지','진':'진','천':'天',
+  '청':'清','초':'初','촌':'村','총':'총','충':'忠','탑':'탑','태':'태','터':'터','통':'通',
+  '파':'파','판':'판','평':'平','포':'浦','풀':'풀','하':'하','한':'韓','해':'海','행':'행',
+  '현':'현','호':'湖','홍':'弘','화':'花','황':'황','회':'회','효':'효','후':'후','흥':'興'
+};
+
+function koreanToPinyin(str) {
+  // 발음 기반 병음 변환 (로마자 기반으로 근사)
+  const roman = koreanToRoman(str);
+  // 주요 발음 패턴 중국어 독자용 표기
+  return roman
+    .replace(/eo/g, 'ŏ')
+    .replace(/eu/g, 'ŭ')
+    .replace(/ae/g, 'e')
+    .replace(/oe/g, 'ö')
+    .replace(/ui/g, 'ŭi');
+}
+
+const NAME_PATTERNS = [
+  ['공중화장실', 'Public Restroom', '公共厕所'],
+  ['화장실', 'Restroom', '厕所'],
+  ['휴게실', 'Rest Area', '休息室'],
+  ['역 화장실 \\(외부\\)', 'Station Restroom (Outside)', '车站厕所（外部）'],
+  ['역 화장실 \\(내부\\)', 'Station Restroom (Inside)', '车站厕所（内部）'],
+  ['역 화장실', 'Station Restroom', '车站厕所'],
+  ['공원', 'Park', '公园'],
+  ['행정복지센터', 'Community Service Center', '行政福利中心'],
+  ['문화센터', 'Cultural Center', '文化中心'],
+  ['체육관', 'Gymnasium', '体育馆'],
+  ['도서관', 'Library', '图书馆'],
+  ['병원', 'Hospital', '医院'],
+  ['시청', 'City Hall', '市政厅'],
+  ['구청', 'District Office', '区政府'],
+  ['복지관', 'Welfare Center', '福利中心'],
+  ['주민센터', 'Community Center', '社区中心'],
+  ['보건소', 'Public Health Center', '保健所'],
+  ['서울', 'Seoul', '首尔'],
+  ['부산', 'Busan', '釜山'],
+  ['인천', 'Incheon', '仁川'],
+  ['대구', 'Daegu', '大邱'],
+  ['광주', 'Gwangju', '光州'],
+  ['대전', 'Daejeon', '大田'],
+  ['수원', 'Suwon', '水原'],
+  ['성남', 'Seongnam', '城南'],
+  ['고양', 'Goyang', '高阳'],
+  ['용인', 'Yongin', '龙仁'],
+  ['강남', 'Gangnam', '江南'],
+  ['홍대', 'Hongdae', '弘大'],
+  ['명동', 'Myeongdong', '明洞'],
+  ['이태원', 'Itaewon', '梨泰院'],
+  ['한강', 'Han River', '汉江'],
+  ['남산', 'Namsan', '南山'],
+  ['경복궁', 'Gyeongbokgung', '景福宫'],
+  ['광화문', 'Gwanghwamun', '光化门'],
+  ['동대문', 'Dongdaemun', '东大门'],
+  ['잠실', 'Jamsil', '蚕室'],
+  ['여의도', 'Yeouido', '汝矣岛'],
+  ['해운대', 'Haeundae', '海云台'],
+  ['제주', 'Jeju', '济州'],
+  ['인사동', 'Insadong', '仁寺洞'],
+  ['북한산', 'Bukhansan', '北汉山'],
+];
+
+function translateName(name, lang) {
+  if (lang === 'ko') return { main: name, sub: null };
+
+  const idx = lang === 'en' ? 1 : 2;
+
+  // 1단계: 알려진 패턴 번역
+  let result = name;
+  NAME_PATTERNS.forEach(([ko, en, zh]) => {
+    try {
+      result = result.replace(new RegExp(ko, 'g'), lang === 'en' ? en : zh);
+    } catch(e) {}
+  });
+
+  // 2단계: 번역 후에도 남아있는 한글을 로마자로 변환
+  // 한글 문자 범위: AC00~D7A3
+  const hasKorean = (str) => /[\uAC00-\uD7A3]/.test(str);
+
+  if (hasKorean(result)) {
+    // 한글이 남아있으면 한글 부분만 로마자 변환
+    result = result.replace(/[\uAC00-\uD7A3]+/g, (match) => {
+      return lang === 'en' ? koreanToRoman(match) : koreanToPinyin(match);
+    });
+  }
+
+  return { main: result, sub: name };
+}
+
+function getDisplayName(toilet) {
+  if (currentLang === 'ko') return toilet.name;
+  const { main, sub } = translateName(toilet.name, currentLang);
+  if (sub) {
+    return main + ' <small style="color:#aaa;font-weight:400;font-size:11px;">(' + sub + ')</small>';
+  }
+  return main;
+}
+
+
+
+// ─── STATE ──────────────────────────────────────────
+let map, markers = {};
+let toilets = [];
+let selectedId = null;
+let addMode = false;
+let pendingLatLng = null;
+let formRating = 4;
+let activeFilter = "전체";
+let activeRatingFilter = false; // 별점 4점 이상 필터
+let userLocation = null;
+
+
+// Sample data — 전국 주요 공중화장실 (공공데이터 기반)
+const SAMPLES = [
+  // 서울 - 종로/중구
+  { id: "s1", name: "광화문광장 공중화장실", lat: 37.5759, lng: 126.9769, type: "공공", rating: 5, accessible: true, notes: "24시간 운영, 리모델링 완료", addedBy: "공공데이터", ts: Date.now() - 100000 },
+  { id: "s2", name: "경복궁 공중화장실", lat: 37.5796, lng: 126.9770, type: "공원", rating: 4, accessible: true, notes: "09:00~18:00 (동절기 17:00)", addedBy: "공공데이터", ts: Date.now() - 200000 },
+  { id: "s3", name: "인사동 공중화장실", lat: 37.5736, lng: 126.9857, type: "공공", rating: 3, accessible: false, notes: "골목 안쪽, 07:00~22:00", addedBy: "공공데이터", ts: Date.now() - 300000 },
+  { id: "s4", name: "청계천 광통교 화장실", lat: 37.5700, lng: 126.9823, type: "공공", rating: 4, accessible: true, notes: "청계천 변, 24시간", addedBy: "공공데이터", ts: Date.now() - 400000 },
+  { id: "s5", name: "명동성당 인근 공중화장실", lat: 37.5633, lng: 126.9874, type: "공공", rating: 3, accessible: false, notes: "09:00~22:00", addedBy: "공공데이터", ts: Date.now() - 500000 },
+  { id: "s6", name: "남산공원 팔각정 화장실", lat: 37.5512, lng: 126.9882, type: "공원", rating: 4, accessible: false, notes: "09:00~21:00", addedBy: "공공데이터", ts: Date.now() - 600000 },
+  { id: "s7", name: "동대문디자인플라자 화장실", lat: 37.5669, lng: 127.0095, type: "공공", rating: 5, accessible: true, notes: "24시간, 매우 깨끗", addedBy: "공공데이터", ts: Date.now() - 700000 },
+  { id: "s8", name: "창덕궁 앞 공중화장실", lat: 37.5793, lng: 126.9910, type: "공공", rating: 3, accessible: false, notes: "09:00~18:00", addedBy: "공공데이터", ts: Date.now() - 800000 },
+
+  // 서울 - 강남/서초
+  { id: "s9", name: "강남역 공중화장실 (1번출구)", lat: 37.4980, lng: 127.0276, type: "지하철", rating: 4, accessible: true, notes: "지하 2층, 24시간", addedBy: "공공데이터", ts: Date.now() - 900000 },
+  { id: "s10", name: "코엑스 화장실", lat: 37.5115, lng: 127.0595, type: "쇼핑몰", rating: 5, accessible: true, notes: "10:00~22:00, 층마다 있음", addedBy: "공공데이터", ts: Date.now() - 1000000 },
+  { id: "s11", name: "선릉공원 화장실", lat: 37.5087, lng: 127.0478, type: "공원", rating: 3, accessible: false, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 1100000 },
+  { id: "s12", name: "양재시민의숲 화장실", lat: 37.4696, lng: 127.0343, type: "공원", rating: 4, accessible: true, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 1200000 },
+  { id: "s13", name: "반포한강공원 화장실", lat: 37.5126, lng: 126.9944, type: "공원", rating: 4, accessible: true, notes: "24시간, 한강공원 내", addedBy: "공공데이터", ts: Date.now() - 1300000 },
+
+  // 서울 - 마포/홍대
+  { id: "s14", name: "홍대입구역 공중화장실", lat: 37.5573, lng: 126.9236, type: "지하철", rating: 3, accessible: true, notes: "지하 1층, 24시간", addedBy: "공공데이터", ts: Date.now() - 1400000 },
+  { id: "s15", name: "홍대 놀이터 공중화장실", lat: 37.5540, lng: 126.9237, type: "공공", rating: 3, accessible: false, notes: "08:00~23:00", addedBy: "공공데이터", ts: Date.now() - 1500000 },
+  { id: "s16", name: "상암 월드컵공원 화장실", lat: 37.5692, lng: 126.8978, type: "공원", rating: 4, accessible: true, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 1600000 },
+
+  // 서울 - 여의도/영등포
+  { id: "s17", name: "여의도한강공원 화장실", lat: 37.5283, lng: 126.9326, type: "공원", rating: 4, accessible: true, notes: "24시간, 여러 곳 분산", addedBy: "공공데이터", ts: Date.now() - 1700000 },
+  { id: "s18", name: "IFC몰 화장실", lat: 37.5255, lng: 126.9248, type: "쇼핑몰", rating: 5, accessible: true, notes: "10:30~22:00", addedBy: "공공데이터", ts: Date.now() - 1800000 },
+  { id: "s19", name: "영등포 타임스퀘어 화장실", lat: 37.5175, lng: 126.9038, type: "쇼핑몰", rating: 4, accessible: true, notes: "10:30~22:00", addedBy: "공공데이터", ts: Date.now() - 1900000 },
+
+  // 서울 - 용산/이태원
+  { id: "s20", name: "용산가족공원 화장실", lat: 37.5247, lng: 126.9783, type: "공원", rating: 4, accessible: true, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 2000000 },
+  { id: "s21", name: "이태원역 공중화장실", lat: 37.5344, lng: 126.9946, type: "지하철", rating: 3, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 2100000 },
+  { id: "s22", name: "국립중앙박물관 화장실", lat: 37.5238, lng: 126.9805, type: "공공", rating: 5, accessible: true, notes: "10:00~18:00 (수,토 21:00)", addedBy: "공공데이터", ts: Date.now() - 2200000 },
+
+  // 서울 - 성동/왕십리
+  { id: "s23", name: "서울숲 화장실", lat: 37.5443, lng: 127.0375, type: "공원", rating: 4, accessible: true, notes: "06:00~22:00, 여러 곳", addedBy: "공공데이터", ts: Date.now() - 2300000 },
+  { id: "s24", name: "왕십리역 공중화장실", lat: 37.5612, lng: 127.0377, type: "지하철", rating: 3, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 2400000 },
+
+  // 서울 - 노원/도봉
+  { id: "s25", name: "북서울꿈의숲 화장실", lat: 37.6261, lng: 127.0512, type: "공원", rating: 4, accessible: true, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 2500000 },
+  { id: "s26", name: "수락산 입구 화장실", lat: 37.6811, lng: 127.0762, type: "공원", rating: 3, accessible: false, notes: "등산로 입구", addedBy: "공공데이터", ts: Date.now() - 2600000 },
+
+  // 부산
+  { id: "s27", name: "해운대해수욕장 공중화장실", lat: 35.1587, lng: 129.1604, type: "공공", rating: 4, accessible: true, notes: "24시간, 여름철 혼잡", addedBy: "공공데이터", ts: Date.now() - 2700000 },
+  { id: "s28", name: "광안리해수욕장 공중화장실", lat: 35.1531, lng: 129.1186, type: "공공", rating: 3, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 2800000 },
+  { id: "s29", name: "부산역 공중화장실", lat: 35.1146, lng: 129.0395, type: "지하철", rating: 4, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 2900000 },
+  { id: "s30", name: "용두산공원 화장실", lat: 35.1010, lng: 129.0318, type: "공원", rating: 3, accessible: false, notes: "09:00~21:00", addedBy: "공공데이터", ts: Date.now() - 3000000 },
+  { id: "s31", name: "자갈치시장 공중화장실", lat: 35.0969, lng: 129.0302, type: "공공", rating: 3, accessible: false, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 3100000 },
+  { id: "s32", name: "서면 롯데백화점 화장실", lat: 35.1574, lng: 129.0593, type: "쇼핑몰", rating: 4, accessible: true, notes: "10:30~20:00", addedBy: "공공데이터", ts: Date.now() - 3200000 },
+  { id: "s33", name: "송정해수욕장 공중화장실", lat: 35.1793, lng: 129.2017, type: "공공", rating: 3, accessible: false, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 3300000 },
+
+  // 인천
+  { id: "s34", name: "인천국제공항 공중화장실", lat: 37.4602, lng: 126.4407, type: "공공", rating: 5, accessible: true, notes: "24시간, 청결 우수", addedBy: "공공데이터", ts: Date.now() - 3400000 },
+  { id: "s35", name: "인천 차이나타운 공중화장실", lat: 37.4753, lng: 126.6175, type: "공공", rating: 3, accessible: false, notes: "09:00~21:00", addedBy: "공공데이터", ts: Date.now() - 3500000 },
+  { id: "s36", name: "월미도 공중화장실", lat: 37.4724, lng: 126.5986, type: "공공", rating: 3, accessible: true, notes: "09:00~22:00", addedBy: "공공데이터", ts: Date.now() - 3600000 },
+  { id: "s37", name: "송도센트럴파크 화장실", lat: 37.3926, lng: 126.6444, type: "공원", rating: 5, accessible: true, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 3700000 },
+
+  // 대구
+  { id: "s38", name: "동성로 공중화장실", lat: 35.8706, lng: 128.5942, type: "공공", rating: 3, accessible: true, notes: "07:00~23:00", addedBy: "공공데이터", ts: Date.now() - 3800000 },
+  { id: "s39", name: "대구 앞산공원 화장실", lat: 35.8221, lng: 128.5763, type: "공원", rating: 3, accessible: false, notes: "06:00~22:00", addedBy: "공공데이터", ts: Date.now() - 3900000 },
+  { id: "s40", name: "동대구역 공중화장실", lat: 35.8794, lng: 128.6286, type: "지하철", rating: 4, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 4000000 },
+
+  // 광주
+  { id: "s41", name: "국립아시아문화전당 화장실", lat: 35.1471, lng: 126.9168, type: "공공", rating: 5, accessible: true, notes: "10:00~18:00 (금,토 20:00)", addedBy: "공공데이터", ts: Date.now() - 4100000 },
+  { id: "s42", name: "충장로 공중화장실", lat: 35.1497, lng: 126.9175, type: "공공", rating: 3, accessible: false, notes: "07:00~23:00", addedBy: "공공데이터", ts: Date.now() - 4200000 },
+
+  // 대전
+  { id: "s43", name: "대전 엑스포과학공원 화장실", lat: 36.3741, lng: 127.3867, type: "공원", rating: 4, accessible: true, notes: "09:00~18:00", addedBy: "공공데이터", ts: Date.now() - 4300000 },
+  { id: "s44", name: "대전역 공중화장실", lat: 36.3316, lng: 127.4344, type: "지하철", rating: 3, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 4400000 },
+
+  // 수원
+  { id: "s45", name: "수원화성 장안문 화장실", lat: 37.2882, lng: 127.0125, type: "공공", rating: 4, accessible: true, notes: "09:00~18:00", addedBy: "공공데이터", ts: Date.now() - 4500000 },
+  { id: "s46", name: "수원역 공중화장실", lat: 37.2663, lng: 127.0027, type: "지하철", rating: 3, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 4600000 },
+
+  // 제주
+  { id: "s47", name: "제주 성산일출봉 화장실", lat: 33.4587, lng: 126.9426, type: "공공", rating: 4, accessible: false, notes: "07:00~20:00 (동절기 18:00)", addedBy: "공공데이터", ts: Date.now() - 4700000 },
+  { id: "s48", name: "제주공항 공중화장실", lat: 33.5071, lng: 126.4930, type: "공공", rating: 5, accessible: true, notes: "24시간", addedBy: "공공데이터", ts: Date.now() - 4800000 },
+  { id: "s49", name: "제주 중문해수욕장 화장실", lat: 33.2447, lng: 126.4130, type: "공공", rating: 3, accessible: false, notes: "09:00~18:00", addedBy: "공공데이터", ts: Date.now() - 4900000 },
+  { id: "s50", name: "한라수목원 화장실", lat: 33.4855, lng: 126.4858, type: "공원", rating: 4, accessible: true, notes: "09:00~18:00", addedBy: "공공데이터", ts: Date.now() - 5000000 },
+];
+
+const ALL_SAMPLES = [...SAMPLES];
+
+// ─── STORAGE ─────────────────────────────────────────
+// 사용자 등록 화장실 캐시
+let userToilets = [];
+// 공공 화장실 캐시 (Geo 조회 결과)
+let publicToilets = [];
+// 마지막 Geo 조회 위치
+let lastGeoCenter = null;
+
+async function loadData() {
+  try {
+    document.getElementById('count-label').textContent = '데이터 로딩 중...';
+    const { collection, getDocs } = window._fbFns;
+    const db = window._db;
+
+    // 사용자 등록 화장실만 전체 로드 (적은 양)
+    const userSnap = await getDocs(collection(db, 'toilets'));
+    userToilets = [];
+    userSnap.forEach(d => {
+      const data = d.data();
+      userToilets.push({
+        ...data,
+        lat: parseFloat(data.lat),
+        lng: parseFloat(data.lng),
+        _docId: d.id
+      });
+    });
+
+    toilets = [...ALL_SAMPLES, ...userToilets];
+    updateCountLabel();
+    renderMarkers();
+
+    // 현재 지도 중심으로 근처 공공 화장실 로드
+    const center = map.getCenter();
+    await loadNearbyPublicToilets(center.lat(), center.lng());
+
+  } catch(e) {
+    console.error(e);
+    toilets = ALL_SAMPLES;
+    showToast(t('locPermission'));
+    updateCountLabel();
+    renderMarkers();
+  }
+}
+
+// 공공 화장실 Firebase 전체 로드 (geohash 준비 전 사용)
+let publicDataLoaded = false;
+async function loadNearbyPublicToilets(lat, lng) {
+  // 이미 로드됐으면 스킵
+  if (publicDataLoaded) return;
+  await loadAllPublicToilets();
+}
+
+async function loadAllPublicToilets() {
+  if (publicDataLoaded) return;
+  try {
+    const { collection, getDocs } = window._fbFns;
+    const db = window._db;
+    setLoadingProgress(65, '공공 화장실 목록 불러오는 중...');
+    document.getElementById('count-label').textContent = '공공 화장실 로딩 중...';
+    const snap = await getDocs(collection(db, 'public_toilets'));
+    publicToilets = [];
+
+    setLoadingProgress(80, `데이터 처리 중...`);
+    snap.forEach(d => publicToilets.push(d.data()));
+    publicDataLoaded = true;
+
+    setLoadingProgress(95, '지도에 표시하는 중...');
+    toilets = [...ALL_SAMPLES, ...publicToilets, ...userToilets];
+    updateCountLabel();
+    renderMarkers();
+
+    setLoadingProgress(100, '완료!');
+    setTimeout(() => {
+      hideLoadingScreen();
+      showToast('✅ ' + toilets.length.toLocaleString() + '개 로드 완료!');
+    }, 400);
+
+  } catch(e) {
+    console.error('공공 화장실 로드 오류:', e);
+    hideLoadingScreen();
+  }
+}
+
+// 경기도 공중화장실 API 호출 (CORS 우회: 프록시 사용)
+async function loadGyeonggiData() {
+  try {
+    const pageSize = 1000;
+    const apiUrl = `https://openapi.gg.go.kr/PublicToiletHc?KEY=${GG_API_KEY}&Type=json&pIndex=1&pSize=${pageSize}`;
+    
+    // 여러 CORS 프록시 순서대로 시도
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`,
+      `https://proxy.cors.sh/${apiUrl}`,
+      `https://thingproxy.freeboard.io/fetch/${apiUrl}`,
+    ];
+    
+    let data = null;
+    for (const proxyUrl of proxies) {
+      try {
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        data = await res.json();
+        if (data?.PublicToiletHc) break;
+      } catch(e) {
+        continue;
+      }
+    }
+    
+    if (!data?.PublicToiletHc) {
+      console.warn('경기도 API: 모든 프록시 실패');
+      return [];
+    }
+    
+    const rows = data.PublicToiletHc[1]?.row || [];
+    const results = [];
+    
+    rows.forEach((r, i) => {
+      const lat = parseFloat(r.REFINE_WGS84_LAT);
+      const lng = parseFloat(r.REFINE_WGS84_LOGT);
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+      if (!(33 < lat && lat < 39 && 124 < lng && lng < 132)) return;
+      
+      results.push({
+        id: `gg_${i}_${Date.now()}`,
+        name: r.PBCTLT_PLC_NM || '경기도 공중화장실',
+        lat, lng,
+        type: '공공',
+        rating: 4,
+        accessible: (parseInt(r.MALE_HANDICAPPED_TOILET_CNT) > 0 || parseInt(r.FEMALE_HANDICAPPED_TOILET_CNT) > 0),
+        notes: `${r.SIGUN_NM || ''} | ${r.REFINE_ROADNM_ADDR || r.REFINE_LOTNO_ADDR || ''}`.trim(),
+        addedBy: '경기도공공데이터',
+        ts: 1700000000000
+      });
+    });
+    
+    console.log(`경기도 API: ${results.length}개 로드 완료`);
+    return results;
+  } catch(e) {
+    console.warn('경기도 API 오류:', e);
+    return [];
+  }
+}
+
+async function saveData(toilet) {
+  try {
+    const { collection, addDoc } = window._fbFns;
+    const db = window._db;
+    const docRef = await addDoc(collection(db, 'toilets'), toilet);
+    return docRef.id;
+  } catch(e) {
+    console.error('Firebase 저장 오류:', e);
+    return null;
+  }
+}
+
+async function deleteFromFirebase(docId) {
+  try {
+    const { doc, deleteDoc } = window._fbFns;
+    const db = window._db;
+    await deleteDoc(doc(db, 'toilets', docId));
+  } catch(e) { console.error(e); }
+}
+
+// ─── MAP INIT ────────────────────────────────────────
+function initMap() {
+  setLoadingProgress(5, '지도 초기화 중...');
+  map = new google.maps.Map(document.getElementById('map-canvas'), {
+    center: { lat: 37.5665, lng: 126.9780 },
+    zoom: 14,
+    disableDefaultUI: true,
+    zoomControl: true,
+    gestureHandling: 'greedy',
+    styles: [
+      { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+      { featureType: "transit.station", elementType: "labels.icon", stylers: [{ visibility: "simplified" }] },
+      { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e8f5" }] },
+      { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f7f2" }] },
+      { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+      { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+      { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#888888" }] },
+    ]
+  });
+
+  map.addListener('click', function(e) {
+    if (addMode) {
+      setPendingLocation(e.latLng.lat(), e.latLng.lng());
+    } else {
+      closeAllSheets();
+    }
+  });
+
+  // 지도 이동/줌 완료 후 마커 갱신 + 근처 데이터 재조회
+  map.addListener('idle', function() {
+    // 마지막 bounds 저장 (목록 탭에서도 활용)
+    lastMapBounds = map.getBounds();
+    renderMarkers();
+    // 공공 데이터 아직 안 로드됐으면 로드
+    if (window._db && !publicDataLoaded) {
+      const center = map.getCenter();
+      loadNearbyPublicToilets(center.lat(), center.lng());
+    }
+  });
+
+  if (window._db) {
+    loadData();
+  } else {
+    window.addEventListener('firebase-ready', () => {
+      loadData();
+    });
+  }
+}
+
+// ─── MARKERS ─────────────────────────────────────────
+let renderTimer = null;
+function renderMarkers() {
+  // 디바운스: 연속 호출 방지
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(_doRenderMarkers, 200);
+}
+
+function _doRenderMarkers() {
+  // 현재 뷰포트 범위 계산
+  const bounds = map.getBounds();
+  if (!bounds) return;
+
+  let filtered = toilets.filter(t => {
+    if (activeFilter === '전체') return true;
+    if (activeFilter === '상업시설') return t.type === '상업시설' || t.type === '쇼핑몰';
+    return t.type === activeFilter;
+  });
+  if (activeRatingFilter) filtered = filtered.filter(t => getAvgRating(t) >= 4);
+
+  // 뷰포트 밖 마커 제거, 안에 있는 것만 추가 (최대 200개)
+  const inView = filtered.filter(t => bounds.contains({ lat: t.lat, lng: t.lng }));
+  const toShow = inView.slice(0, 200);
+  const toShowIds = new Set(toShow.map(t => t.id));
+
+  // 뷰포트 밖 마커 제거
+  Object.keys(markers).forEach(id => {
+    if (!toShowIds.has(id)) {
+      markers[id].setMap(null);
+      delete markers[id];
+    }
+  });
+
+  // 새 마커 추가
+  toShow.forEach(t => {
+    if (markers[t.id]) return; // 이미 있으면 스킵
+    const color = t.accessible ? '#00c896' : '#ff7043';
+    const marker = new google.maps.Marker({
+      position: { lat: t.lat, lng: t.lng },
+      map,
+      title: t.name,
+      icon: {
+        path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+        fillColor: color,
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+        scale: 1.6,
+        anchor: new google.maps.Point(12, 22),
+        labelOrigin: new google.maps.Point(12, 9),
+      },
+
+    });
+    marker.addListener('click', () => openDetail(t.id));
+    markers[t.id] = marker;
+  });
+
+  updateCountLabel();
+}
+
+// ─── ADD MODE ────────────────────────────────────────
+let pendingMarker = null;
+
+function openAddSheet() {
+  addMode = true;
+  pendingLatLng = null;
+  document.getElementById('add-banner').textContent = t('addBanner');
+    document.getElementById('add-banner').classList.add('show');
+  document.getElementById('loc-indicator').className = 'location-indicator empty';
+  document.getElementById('loc-indicator').textContent = '<span id="loc-hint-text">📍 지도에서 위치를 먼저 탭하세요</span>';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-notes').value = '';
+  document.getElementById('f-accessible').checked = false;
+  document.getElementById('form-error').textContent = '';
+  formRating = 4;
+  updateStars();
+  // 폼을 닫고 지도만 보여줌 → 사용자가 지도를 탭할 수 있게
+  closeSheet('add-sheet');
+  switchView('map');
+}
+
+function setPendingLocation(lat, lng) {
+  pendingLatLng = { lat, lng };
+  if (pendingMarker) pendingMarker.setMap(null);
+  pendingMarker = new google.maps.Marker({
+    position: { lat, lng },
+    map,
+    icon: {
+      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',
+      fillColor: '#ff4488',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      scale: 1.8,
+      anchor: new google.maps.Point(12, 22),
+    },
+    animation: google.maps.Animation.BOUNCE,
+  });
+  setTimeout(() => { if (pendingMarker) pendingMarker.setAnimation(null); }, 700);
+
+  document.getElementById('loc-indicator').className = 'location-indicator';
+  document.getElementById('loc-indicator').innerHTML = `✅ 위치 선택됨 &nbsp; <small style="opacity:0.7">${lat.toFixed(4)}, ${lng.toFixed(4)}</small>`;
+  // 위치 선택 후 자동으로 폼 열기
+  openSheet('add-sheet');
+}
+
+function closeSheet(id) {
+  document.getElementById(id).classList.remove('open');
+  const anyOpen = document.querySelector('.bottom-sheet.open');
+  if (!anyOpen) document.getElementById('overlay').classList.remove('show');
+}
+
+
+// ─── GPS 위치 검증 ──────────────────────────────────────
+const GPS_RADIUS_TOILET = 200;  // 화장실 등록: 200m 이내
+const GPS_RADIUS_REVIEW = 100;  // 댓글 작성: 100m 이내
+const GPS_CACHE_TIME = 60000;   // GPS 캐시 1분
+
+let cachedGPS = null;
+let cachedGPSTime = 0;
+
+function getCurrentGPS() {
+  return new Promise((resolve, reject) => {
+    // 캐시된 위치가 1분 이내면 재사용
+    if (cachedGPS && (Date.now() - cachedGPSTime) < GPS_CACHE_TIME) {
+      resolve(cachedGPS);
+      return;
+    }
+    if (!navigator.geolocation) {
+      reject(new Error('GPS를 사용할 수 없습니다'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        cachedGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        cachedGPSTime = Date.now();
+        resolve(cachedGPS);
+      },
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  });
+}
+
+async function checkNearby(targetLat, targetLng, radiusM, action) {
+  try {
+    showToast('📍 현재 위치 확인 중...');
+    const gps = await getCurrentGPS();
+    const dist = calcDistance(gps.lat, gps.lng, targetLat, targetLng);
+    if (dist <= radiusM) {
+      return true; // 범위 내
+    } else {
+      const distStr = dist < 1000 ? `${Math.round(dist)}m` : `${(dist/1000).toFixed(1)}km`;
+      showToast(`📍 현재 위치에서 너무 멀어요 (${distStr} 거리). ${radiusM}m 이내에서만 ${action} 가능해요.`);
+      return false;
+    }
+  } catch(e) {
+    // GPS 실패시 경고만 하고 허용 (GPS 없는 환경 대비)
+    console.warn('GPS 확인 실패:', e);
+    showToast('⚠️ 위치 확인 실패. 실제 위치에서 등록해 주세요.');
+    return true; // GPS 못 받으면 일단 허용
+  }
+}
+
+async function submitToilet() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('form-error').textContent = t('errName'); return; }
+  if (!pendingLatLng) { document.getElementById('form-error').textContent = t('errLocation'); return; }
+
+  // GPS 위치 검증 (200m 이내)
+  const isNearby = await checkNearby(
+    parseFloat(pendingLatLng.lat),
+    parseFloat(pendingLatLng.lng),
+    GPS_RADIUS_TOILET,
+    '화장실 등록'
+  );
+  if (!isNearby) return;
+
+  const t = {
+    id: 'u' + Date.now(),
+    name,
+    lat: parseFloat(pendingLatLng.lat),
+    lng: parseFloat(pendingLatLng.lng),
+    type: document.getElementById('f-type').value,
+    rating: formRating,
+    accessible: document.getElementById('f-accessible').checked,
+    notes: document.getElementById('f-notes').value.trim(),
+    addedBy: '사용자',
+    ts: Date.now(),
+  };
+
+  saveData(t).then(docId => {
+    if (docId) t._docId = docId;
+    toilets.unshift(t);
+    renderMarkers();
+    showToast(t('registered'));
+    map.panTo({ lat: t.lat, lng: t.lng });
+  });
+
+  if (pendingMarker) { pendingMarker.setMap(null); pendingMarker = null; }
+  addMode = false;
+  document.getElementById('add-banner').classList.remove('show');
+  pendingLatLng = null;
+  closeAllSheets();
+}
+
+// ─── DETAIL ──────────────────────────────────────────
+function openDetail(id) {
+  const t = toilets.find(x => x.id === id);
+  if (!t) return;
+  selectedId = id;
+
+  document.getElementById('d-name').innerHTML = getDisplayName(t);
+
+  // 평균 별점 표시
+  const avgRating = t.ratingSum && t.ratingCount ? (t.ratingSum / t.ratingCount) : t.rating;
+  const ratingCount = t.ratingCount || 0;
+  document.getElementById('d-stars').textContent = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating));
+  document.getElementById('d-rating-count').textContent = ratingCount > 0 ? `${avgRating.toFixed(1)} (${ratingCount}명)` : '';
+
+  // 사용자 별점 UI 초기화
+  const ratedKey = 'rated_' + t.id;
+  const alreadyRated = localStorage.getItem(ratedKey);
+  const stars = document.querySelectorAll('.user-star-btn');
+  const ratedMsg = document.getElementById('user-rated-msg');
+  const ratingRow = document.getElementById('user-rating-row');
+  if (alreadyRated) {
+    const prev = parseInt(alreadyRated);
+    stars.forEach((s, i) => s.classList.toggle('on', i < prev));
+    ratedMsg.style.display = 'block';
+    ratingRow.style.opacity = '0.5';
+  } else {
+    stars.forEach(s => s.classList.remove('on'));
+    ratedMsg.style.display = 'none';
+    ratingRow.style.opacity = '1';
+  }
+
+  document.getElementById('d-notes').textContent = t.notes || '메모 없음';
+
+  // 최근 휴지 현황 표시 (리뷰 로드 후 업데이트)
+  const tpSummary = document.getElementById('tp-summary');
+  if (tpSummary) tpSummary.remove();
+  document.getElementById('d-meta').textContent = `${t.addedBy} · ${timeAgo(t.ts)}`;
+
+  const tags = document.getElementById('d-tags');
+  tags.innerHTML = `<span class="tag tag-type">${t.type}</span>` +
+    (t.accessible ? '<span class="tag tag-accessible">♿ 접근 가능</span>' : '') +
+    (t.addedBy === '경기도공공데이터' ? '<span class="tag tag-api">📡 API</span>' : '');
+
+  // 신고 버튼 항상 표시 + 신고 수 표시
+  document.getElementById('d-report-btn').style.display = 'block';
+  const reportCount = t.reportCount || 0;
+  document.getElementById('d-report-count').textContent = reportCount > 0 ? `(${reportCount}명 신고)` : '';
+
+  if (markers[id]) {
+    markers[id].setAnimation(google.maps.Animation.BOUNCE);
+    setTimeout(() => markers[id] && markers[id].setAnimation(null), 800);
+  }
+  map.panTo({ lat: t.lat, lng: t.lng });
+  openSheet('detail-sheet');
+  resetToiletPaper();
+  // 댓글 로드
+  if (window._db) loadReviews(t.id);
+}
+
+function openGoogleMapsNav() {
+  const t = toilets.find(x => x.id === selectedId);
+  if (!t) return;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}`, '_blank');
+}
+
+function openKakaoNav() {
+  const t = toilets.find(x => x.id === selectedId);
+  if (!t) return;
+  window.open(`https://map.kakao.com/link/to/${encodeURIComponent(t.name)},${t.lat},${t.lng}`, '_blank');
+}
+
+
+// ─── 사용자 별점 ──────────────────────────────────────
+async function submitUserRating(score) {
+  const toilet = toilets.find(x => x.id === selectedId);
+  if (!toilet) return;
+
+  const ratedKey = 'rated_' + toilet.id;
+  if (localStorage.getItem(ratedKey)) {
+    showToast('이미 평가하셨습니다!');
+    return;
+  }
+
+  // 별 하이라이트 즉시 반영
+  const stars = document.querySelectorAll('.user-star-btn');
+  stars.forEach((s, i) => s.classList.toggle('on', i < score));
+
+  // 로컬 저장 먼저 (중복 클릭 방지)
+  localStorage.setItem(ratedKey, score.toString());
+  document.getElementById('user-rated-msg').style.display = 'block';
+  document.getElementById('user-rating-row').style.opacity = '0.5';
+
+  // 로컬 상태 즉시 업데이트
+  toilet.ratingSum = (toilet.ratingSum || 0) + score;
+  toilet.ratingCount = (toilet.ratingCount || 0) + 1;
+  const newAvg = toilet.ratingSum / toilet.ratingCount;
+  document.getElementById('d-stars').textContent = '★'.repeat(Math.round(newAvg)) + '☆'.repeat(5 - Math.round(newAvg));
+  document.getElementById('d-rating-count').textContent = `${newAvg.toFixed(1)} (${toilet.ratingCount}명)`;
+  showToast('⭐ 별점을 남겨주셔서 감사합니다!');
+
+  // Firebase 저장 (백그라운드)
+  try {
+    const { collection, addDoc } = window._fbFns;
+    const db = window._db;
+
+    // ratings 컬렉션에만 저장 (간단하게)
+    await addDoc(collection(db, 'ratings'), {
+      toiletId: toilet.id,
+      toiletName: toilet.name,
+      score,
+      ts: Date.now()
+    });
+  } catch(e) {
+    console.warn('Firebase 별점 저장 오류 (로컬은 저장됨):', e);
+  }
+}
+
+
+// ─── 휴지 체크 ─────────────────────────────────────────
+let toiletPaperStatus = null; // 'yes' | 'no' | 'na' | null
+
+function setToiletPaper(val) {
+  toiletPaperStatus = val;
+  document.getElementById('tp-yes').className = 'tp-btn' + (val === 'yes' ? ' active-yes' : '');
+  document.getElementById('tp-no').className = 'tp-btn' + (val === 'no' ? ' active-no' : '');
+  document.getElementById('tp-na').className = 'tp-btn' + (val === 'na' ? ' active-yes' : '');
+}
+
+function resetToiletPaper() {
+  toiletPaperStatus = null;
+  ['tp-yes', 'tp-no', 'tp-na'].forEach(id => {
+    document.getElementById(id).className = 'tp-btn';
+  });
+}
+
+function updateToiletPaperSummary(reviews) {
+  // 기존 요약 제거
+  const existing = document.getElementById('tp-summary');
+  if (existing) existing.remove();
+
+  // 최근 5개 후기에서 휴지 현황 집계
+  const recent = reviews.filter(r => r.toiletPaper && r.toiletPaper !== 'na').slice(0, 5);
+  if (recent.length === 0) return;
+
+  const yesCount = recent.filter(r => r.toiletPaper === 'yes').length;
+  const noCount = recent.filter(r => r.toiletPaper === 'no').length;
+  const total = yesCount + noCount;
+  const yesRatio = Math.round(yesCount / total * 100);
+
+  const color = yesRatio >= 70 ? '#00a070' : yesRatio >= 40 ? '#e67e00' : '#cc4444';
+  const icon = yesRatio >= 70 ? '🧻' : yesRatio >= 40 ? '⚠️' : '❌';
+  const msg = yesRatio >= 70 ? '휴지 대부분 있음' : yesRatio >= 40 ? '휴지 가끔 없음' : '휴지 자주 없음';
+
+  const summaryEl = document.createElement('div');
+  summaryEl.id = 'tp-summary';
+  summaryEl.style.cssText = `background:${color}15;border:1.5px solid ${color}40;border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;`;
+  summaryEl.innerHTML = `
+    <span style="font-size:18px;">${icon}</span>
+    <div>
+      <div style="font-size:12px;font-weight:800;color:${color};">${msg}</div>
+      <div style="font-size:11px;color:var(--muted);">최근 후기 기준 · 있음 ${yesCount}/${total}건</div>
+    </div>`;
+
+  // 후기 목록 위에 삽입
+  const reviewList = document.getElementById('review-list');
+  if (reviewList) reviewList.insertAdjacentElement('beforebegin', summaryEl);
+}
+
+// ─── 댓글/후기 시스템 ──────────────────────────────────
+let currentReviews = [];
+let reviewLastDoc = null;
+const REVIEWS_PER_PAGE = 5;
+
+async function loadReviews(toiletId) {
+  document.getElementById('review-list').innerHTML = '<div class="review-empty">후기를 불러오는 중...</div>';
+  document.getElementById('review-count').textContent = '';
+  currentReviews = [];
+
+  try {
+    const { collection, getDocs, query, where } = window._fbFns;
+    const db = window._db;
+
+    // 인덱스 없이 where만 사용 (단순 쿼리)
+    const q = query(
+      collection(db, 'reviews'),
+      where('toiletId', '==', toiletId)
+    );
+
+    const snap = await getDocs(q);
+    const reviews = [];
+    snap.forEach(d => reviews.push({ docId: d.id, ...d.data() }));
+
+    // 클라이언트에서 최신순 정렬
+    reviews.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    currentReviews = reviews;
+
+    const total = reviews.length;
+    document.getElementById('review-count').textContent = total > 0 ? `(${total}개)` : '';
+
+    // 처음엔 5개만 표시
+    renderReviews(reviews.slice(0, REVIEWS_PER_PAGE));
+    document.getElementById('review-load-more').style.display = total > REVIEWS_PER_PAGE ? 'block' : 'none';
+
+    // 한국어 아니면 자동 번역
+    if (currentLang !== 'ko' && total > 0) {
+      setTimeout(() => translateAllReviews(), 500);
+    }
+
+  } catch(e) {
+    console.error('후기 로드 오류:', e);
+    document.getElementById('review-list').innerHTML = '<div class="review-empty">후기를 불러올 수 없습니다</div>';
+  }
+}
+
+let reviewPage = 1;
+function loadMoreReviews() {
+  reviewPage++;
+  const end = reviewPage * REVIEWS_PER_PAGE;
+  renderReviews(currentReviews.slice(0, end));
+  if (end >= currentReviews.length) {
+    document.getElementById('review-load-more').style.display = 'none';
+  }
+}
+
+
+// ─── 댓글 번역 (Claude API) ──────────────────────────────
+const reviewTranslationCache = {};
+
+async function translateReviewText(text, targetLang) {
+  if (targetLang === 'ko') return text;
+  
+  const cacheKey = `${text}_${targetLang}`;
+  if (reviewTranslationCache[cacheKey]) return reviewTranslationCache[cacheKey];
+
+  const langName = targetLang === 'en' ? 'English' : 'Chinese (Simplified)';
+  
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `Translate the following Korean text to ${langName}. Return only the translated text, nothing else:
+
+${text}`
+        }]
+      })
+    });
+    const data = await response.json();
+    const translated = data.content?.[0]?.text?.trim() || text;
+    reviewTranslationCache[cacheKey] = translated;
+    return translated;
+  } catch(e) {
+    console.warn('번역 실패:', e);
+    return text;
+  }
+}
+
+async function translateAllReviews() {
+  if (currentLang === 'ko') {
+    // 한국어면 원본으로 복원
+    renderReviews(currentReviews.slice(0, reviewPage * REVIEWS_PER_PAGE));
+    return;
+  }
+
+  if (isTranslatingReviews) return;
+  isTranslatingReviews = true;
+
+  const items = document.querySelectorAll('[id^="review-text-"]');
+  if (items.length === 0) { isTranslatingReviews = false; return; }
+
+  showToast('💬 댓글 번역 중...');
+
+  const visibleReviews = currentReviews.slice(0, reviewPage * REVIEWS_PER_PAGE);
+
+  for (let i = 0; i < visibleReviews.length; i++) {
+    const r = visibleReviews[i];
+    const el = document.getElementById(`review-text-${i}`);
+    if (!el) continue;
+
+    // 번역 중 표시
+    el.style.opacity = '0.5';
+    const translated = await translateReviewText(r.text, currentLang);
+    if (el) {
+      el.textContent = translated;
+      el.style.opacity = '1';
+      // 원본 보기 버튼 추가
+      if (translated !== r.text && !document.getElementById(`review-orig-${i}`)) {
+        el.insertAdjacentHTML('afterend', `
+          <div id="review-orig-${i}" style="font-size:11px;color:var(--muted);margin-top:4px;cursor:pointer;" 
+               onclick="toggleOriginal(${i}, '${r.text.replace(/'/g, "\'")}')">
+            🔤 원문 보기
+          </div>`);
+      }
+    }
+  }
+
+  isTranslatingReviews = false;
+  showToast('✅ 번역 완료!');
+}
+
+function toggleOriginal(idx, originalText) {
+  const el = document.getElementById(`review-text-${idx}`);
+  const btn = document.getElementById(`review-orig-${idx}`);
+  if (!el || !btn) return;
+
+  if (btn.dataset.showing === 'original') {
+    // 번역으로 돌아가기
+    const cacheKey = `${originalText}_${currentLang}`;
+    el.textContent = reviewTranslationCache[cacheKey] || originalText;
+    btn.textContent = '🔤 원문 보기';
+    btn.dataset.showing = '';
+  } else {
+    // 원문 보기
+    el.textContent = originalText;
+    btn.textContent = '🔤 번역 보기';
+    btn.dataset.showing = 'original';
+  }
+}
+
+// 기기 고유 ID (작성자 식별용)
+function getDeviceId() {
+  let id = localStorage.getItem('device-id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
+    localStorage.setItem('device-id', id);
+  }
+  return id;
+}
+
+function renderReviews(reviews) {
+  const container = document.getElementById('review-list');
+  if (!reviews || reviews.length === 0) {
+    container.innerHTML = '<div class="review-empty">첫 후기를 남겨주세요! 😊</div>';
+    return;
+  }
+  const myId = getDeviceId();
+  container.innerHTML = reviews.map((r, idx) => {
+    const isMine = r.deviceId === myId;
+    return `
+    <div class="review-item" id="review-item-${idx}">
+      <div class="review-header">
+        <span class="review-author">👤 ${r.author || '익명'}${isMine ? ' <span style="color:var(--teal);font-size:10px;">(나)</span>' : ''}</span>
+        <span class="review-time">${timeAgo(r.ts)}</span>
+      </div>
+      ${r.rating ? `<div class="review-stars">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>` : ''}
+      ${r.toiletPaper === 'yes' ? '<div style="font-size:12px;color:#00a070;margin-bottom:4px;">🧻 휴지 있음</div>' : r.toiletPaper === 'no' ? '<div style="font-size:12px;color:#cc4444;margin-bottom:4px;">❌ 휴지 없음</div>' : ''}
+      <div class="review-text" id="review-text-${idx}">${r.text}</div>
+      ${isMine ? `
+        <div class="review-actions">
+          <button class="review-edit-btn" onclick="startEditReview(${idx})">✏️ 수정</button>
+          <button class="review-delete-btn" onclick="deleteReview('${r.docId}', ${idx})">🗑 삭제</button>
+        </div>
+        <div class="review-edit-area" id="review-edit-area-${idx}">
+          <textarea class="review-edit-input" id="review-edit-input-${idx}" rows="2">${r.text}</textarea>
+          <div class="review-edit-btns">
+            <button class="review-cancel-btn" onclick="cancelEditReview(${idx})">취소</button>
+            <button class="review-save-btn" onclick="saveEditReview('${r.docId}', ${idx})">저장</button>
+          </div>
+        </div>
+      ` : ''}
+    </div>`;
+  }).join('');
+
+}
+
+function startEditReview(idx) {
+  document.getElementById(`review-edit-area-${idx}`).style.display = 'block';
+  document.getElementById(`review-edit-input-${idx}`).focus();
+}
+
+function cancelEditReview(idx) {
+  document.getElementById(`review-edit-area-${idx}`).style.display = 'none';
+}
+
+async function saveEditReview(docId, idx) {
+  const newText = document.getElementById(`review-edit-input-${idx}`).value.trim();
+  if (!newText) { showToast('내용을 입력해주세요'); return; }
+  if (newText.length > 200) { showToast('200자 이내로 입력해주세요'); return; }
+
+  try {
+    const { collection, doc, updateDoc } = window._fbFns;
+    const db = window._db;
+    if (docId && docId !== 'new') {
+      await updateDoc(doc(db, 'reviews', docId), { text: newText, edited: true });
+    }
+    // 로컬 업데이트
+    currentReviews[idx].text = newText;
+    document.getElementById(`review-text-${idx}`).textContent = newText;
+    document.getElementById(`review-edit-area-${idx}`).style.display = 'none';
+    showToast('✅ 후기가 수정됐습니다');
+  } catch(e) {
+    console.error(e);
+    showToast('수정에 실패했습니다');
+  }
+}
+
+async function deleteReview(docId, idx) {
+  if (!confirm('후기를 삭제할까요?')) return;
+  try {
+    const { doc, deleteDoc } = window._fbFns;
+    const db = window._db;
+    if (docId && docId !== 'new') {
+      await deleteDoc(doc(db, 'reviews', docId));
+    }
+    currentReviews.splice(idx, 1);
+    renderReviews(currentReviews.slice(0, reviewPage * REVIEWS_PER_PAGE));
+    const countEl = document.getElementById('review-count');
+    const cur = parseInt(countEl.textContent.replace(/[^0-9]/g, '')) || 0;
+    countEl.textContent = cur > 1 ? `(${cur - 1}개)` : '';
+    showToast('🗑 후기가 삭제됐습니다');
+  } catch(e) {
+    console.error(e);
+    showToast('삭제에 실패했습니다');
+  }
+}
+
+async function submitReview() {
+  const text = document.getElementById('review-input').value.trim();
+  if (!text) { showToast('후기 내용을 입력해주세요'); return; }
+  if (text.length > 200) { showToast('200자 이내로 입력해주세요'); return; }
+
+  const toilet = toilets.find(x => x.id === selectedId);
+  if (!toilet) return;
+
+  // GPS 위치 검증 (100m 이내)
+  const isNearby = await checkNearby(
+    parseFloat(toilet.lat),
+    parseFloat(toilet.lng),
+    GPS_RADIUS_REVIEW,
+    '후기 작성'
+  );
+  if (!isNearby) return;
+
+  const btn = document.querySelector('.review-submit-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  try {
+    const { collection, addDoc } = window._fbFns;
+    const db = window._db;
+
+    // 현재 선택된 별점 가져오기
+    const ratedKey = 'rated_' + toilet.id;
+    const myRating = parseInt(localStorage.getItem(ratedKey)) || 0;
+
+    const review = {
+      toiletId: toilet.id,
+      toiletName: toilet.name,
+      text,
+      rating: myRating,
+      toiletPaper: toiletPaperStatus,
+      author: '익명',
+      deviceId: getDeviceId(),
+      ts: Date.now()
+    };
+
+    // 휴지 정보 초기화
+    resetToiletPaper();
+
+    await addDoc(collection(db, 'reviews'), review);
+
+    // 즉시 목록에 추가
+    currentReviews = [{ ...review, docId: 'new' }, ...currentReviews];
+    renderReviews(currentReviews, false);
+
+    const countEl = document.getElementById('review-count');
+    const cur = parseInt(countEl.textContent.replace(/\D/g, '')) || 0;
+    countEl.textContent = `(${cur + 1}개)`;
+
+    document.getElementById('review-input').value = '';
+    showToast('💬 후기가 등록됐습니다!');
+
+  } catch(e) {
+    console.error('후기 등록 오류:', e);
+    showToast('후기 등록에 실패했습니다');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '등록';
+  }
+}
+
+// ─── 정정 요청 시스템 ──────────────────────────────────
+function reportToilet() {
+  document.getElementById('report-popup').classList.add('show');
+  document.getElementById('report-popup').style.display = 'flex';
+}
+
+function reportFromList(id) {
+  selectedId = id;
+  document.getElementById('report-popup').style.display = 'flex';
+}
+
+async function confirmReport() {
+  const toilet = toilets.find(x => x.id === selectedId);
+  if (!toilet) return;
+
+  document.getElementById('report-popup').style.display = 'none';
+
+  const reportKey = 'reported_' + toilet.id;
+  if (localStorage.getItem(reportKey)) {
+    showToast('이미 신고하셨습니다');
+    return;
+  }
+
+  try {
+    const { collection, addDoc, updateDoc, doc } = window._fbFns;
+    const db = window._db;
+
+    // 신고 기록 저장
+    await addDoc(collection(db, 'reports'), {
+      toiletId: toilet.id,
+      toiletName: toilet.name,
+      ts: Date.now()
+    });
+
+    // 신고 수 증가
+    const newCount = (toilet.reportCount || 0) + 1;
+    toilet.reportCount = newCount;
+
+    // Firebase 업데이트 (docId 있는 경우)
+    if (toilet._docId) {
+      const colName = toilet.id.startsWith('u') ? 'toilets' : 'public_toilets';
+      try {
+        await updateDoc(doc(db, colName, toilet._docId), { reportCount: newCount });
+      } catch(e) {}
+    }
+
+    // 5명 이상 신고시 자동 삭제
+    if (newCount >= 5) {
+      toilets = toilets.filter(x => x.id !== selectedId);
+      renderMarkers();
+      closeAllSheets();
+      showToast('🗑 신고가 누적되어 해당 화장실이 삭제됐습니다');
+      if (toilet._docId) {
+        const { deleteDoc, doc: docRef } = window._fbFns;
+        const colName = toilet.id.startsWith('u') ? 'toilets' : 'public_toilets';
+        try { await deleteDoc(docRef(db, colName, toilet._docId)); } catch(e) {}
+      }
+      return;
+    }
+
+    localStorage.setItem(reportKey, '1');
+    document.getElementById('d-report-count').textContent = `(${newCount}명 신고)`;
+    showToast(`⚠️ 신고 접수됐습니다 (${newCount}/5)`);
+
+  } catch(e) {
+    console.error('신고 오류:', e);
+    // Firebase 실패해도 로컬 처리
+    localStorage.setItem(reportKey, '1');
+    showToast('신고가 접수됐습니다');
+  }
+}
+
+function deleteSelected() {
+  const t = toilets.find(x => x.id === selectedId);
+  if (t && t._docId) deleteFromFirebase(t._docId);
+  toilets = toilets.filter(x => x.id !== selectedId);
+  renderMarkers();
+  closeAllSheets();
+  showToast(t('deleted'));
+}
+
+// ─── FILTER ──────────────────────────────────────────
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  // 별점 필터는 독립적으로 유지
+  if (activeRatingFilter) document.getElementById('fc-rating').classList.add('active');
+  renderMarkers();
+  renderList(document.getElementById('search-input').value);
+}
+
+function toggleRatingFilter(el) {
+  activeRatingFilter = !activeRatingFilter;
+  el.classList.toggle('active', activeRatingFilter);
+  if (activeRatingFilter) {
+    el.style.background = '#ffc107';
+    el.style.color = '#333';
+    el.style.borderColor = '#ffc107';
+  } else {
+    el.style.background = '';
+    el.style.color = '#ffc107';
+    el.style.borderColor = '#ffc107';
+  }
+  renderMarkers();
+  renderList(document.getElementById('search-input').value);
+}
+
+function getAvgRating(t) {
+  if (t.ratingSum && t.ratingCount) return t.ratingSum / t.ratingCount;
+  return t.rating || 0;
+}
+
+// 마지막 뷰포트 bounds 저장 (목록 탭 전환 후에도 사용)
+let lastMapBounds = null;
+
+// ─── LIST ────────────────────────────────────────────
+function renderList(search = '') {
+  // 1단계: 필터 적용
+  let filtered = toilets
+    .filter(t => {
+      if (activeFilter === '전체') return true;
+      if (activeFilter === '상업시설') return t.type === '상업시설' || t.type === '쇼핑몰';
+      return t.type === activeFilter;
+    })
+    .filter(t => !activeRatingFilter || getAvgRating(t) >= 4)
+    .filter(t => !search || t.name.includes(search) || (t.notes && t.notes.includes(search)));
+
+  // 2단계: 뷰포트 필터 (검색어 없을 때만)
+  const bounds = (map && map.getBounds()) || lastMapBounds;
+  let isViewportFiltered = false;
+
+  if (bounds && !search) {
+    const inView = filtered.filter(t => {
+      const lat = parseFloat(t.lat);
+      const lng = parseFloat(t.lng);
+      if (isNaN(lat) || isNaN(lng)) return false;
+      try { return bounds.contains(new google.maps.LatLng(lat, lng)); }
+      catch(e) { return false; }
+    });
+    if (inView.length > 0) {
+      filtered = inView;
+      isViewportFiltered = true;
+    }
+  }
+
+  // 내 위치 있으면 거리 계산 후 가까운 순 정렬
+  if (userLocation) {
+    filtered = filtered.map(t => ({
+      ...t,
+      distance: calcDistance(userLocation.lat, userLocation.lng, t.lat, t.lng)
+    })).sort((a, b) => a.distance - b.distance);
+  }
+
+  const container = document.getElementById('list-items');
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-state"><div class="emoji">🚻</div><p>${t("emptyState")}</p></div>`;
+    return;
+  }
+
+  const viewportBadge = isViewportFiltered
+    ? `<div style="text-align:center;padding:8px;font-size:12px;color:#00c896;background:#f0fdf8;border-radius:10px;margin-bottom:10px;font-weight:700;">${t("viewportBadge")} ${filtered.length}</div>`
+    : '';
+  const locationHint = userLocation ? '' : `<div style="text-align:center;padding:10px;font-size:12px;color:#aaa;background:#f9f9f9;border-radius:10px;margin-bottom:10px;">${t("locationHint")}</div>`;
+  const headerHtml = viewportBadge + (isViewportFiltered ? '' : locationHint);
+
+  container.innerHTML = headerHtml + filtered.map(t => `
+    <div class="list-card" onclick="openDetailFromList('${t.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="list-card-name" style="flex:1;">${getDisplayName(t)}</div>
+        ${t.distance !== undefined ? `<span style="font-size:13px;font-weight:800;color:var(--teal-dark);margin-left:8px;white-space:nowrap;">${formatDistance(t.distance)}</span>` : ''}
+      </div>
+      <div class="detail-tags" style="margin-bottom:6px">
+        <span class="tag tag-type">${t.type}</span>
+        ${t.accessible ? '<span class="tag tag-accessible">♿</span>' : ''}
+        ${t.addedBy === '경기도공공데이터' ? '<span class="tag tag-api">API</span>' : ''}
+      </div>
+      <div class="list-card-row">
+        <span class="list-card-stars">${'★'.repeat(Math.round(t.ratingSum && t.ratingCount ? t.ratingSum/t.ratingCount : t.rating))}${'☆'.repeat(5-Math.round(t.ratingSum && t.ratingCount ? t.ratingSum/t.ratingCount : t.rating))}</span>${t.ratingCount > 0 ? `<span style="font-size:11px;color:var(--muted);margin-left:4px;">(${(t.ratingSum/t.ratingCount).toFixed(1)}, ${t.ratingCount}명)</span>` : ''}
+        <span class="list-card-time">${timeAgo(t.ts)}</span>
+      </div>
+      ${t.notes ? `<div class="list-card-notes">${t.notes}</div>` : ''}
+      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+        <button onclick="event.stopPropagation();reportFromList('${t.id}')" style="background:none;border:1px solid #ffcccc;color:#ff6b6b;border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">
+          ⚠️ 신고 ${t.reportCount > 0 ? `(${t.reportCount})` : ''}
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openDetailFromList(id) {
+  switchView('map');
+  setTimeout(() => openDetail(id), 300);
+}
+
+// ─── LOCATION ────────────────────────────────────────
+function goToMyLocation() {
+  if (!navigator.geolocation) {
+    showToast('위치 정보를 사용할 수 없습니다');
+    return;
+  }
+
+  showToast(t('locating'));
+
+  // 권한 상태 먼저 확인
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then(result => {
+      if (result.state === 'denied') {
+        showToast('설정에서 위치 권한을 허용해 주세요');
+        // 설정 페이지로 안내
+        if (confirm('위치 권한이 차단되어 있어요.\n크롬 설정 > 사이트 설정 > 위치에서 허용해 주세요.\n\n확인을 누르면 설정으로 이동합니다.')) {
+          window.open('chrome://settings/content/location');
+        }
+        return;
+      }
+      _requestLocation();
+    });
+  } else {
+    _requestLocation();
+  }
+}
+
+function _requestLocation() {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      map.panTo(userLocation);
+      map.setZoom(16);
+
+      if (window._myLocationMarker) window._myLocationMarker.setMap(null);
+      window._myLocationMarker = new google.maps.Marker({
+        position: userLocation,
+        map: map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: '#4285f4',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 3,
+        },
+        zIndex: 999,
+        title: '내 위치'
+      });
+
+      renderList(document.getElementById('search-input').value);
+      showToast(t('locSorted'));
+    },
+    err => {
+      console.error('위치 오류:', err.code, err.message);
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        showToast('위치 권한이 차단됐어요. 브라우저 설정에서 허용해 주세요.');
+      } else if (err.code === 2) {
+        // POSITION_UNAVAILABLE
+        showToast('위치를 찾을 수 없어요. GPS를 켜주세요.');
+      } else if (err.code === 3) {
+        // TIMEOUT - 타임아웃 시 재시도
+        showToast('위치 확인 중... 잠시 후 다시 시도합니다');
+        setTimeout(() => _requestLocation(), 2000);
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
+}
+
+function calcDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatDistance(m) {
+  if (m < 1000) return Math.round(m) + 'm';
+  return (m / 1000).toFixed(1) + 'km';
+}
+
+// ─── UI HELPERS ──────────────────────────────────────
+function openSheet(id) {
+  document.getElementById(id).classList.add('open');
+  document.getElementById('overlay').classList.add('show');
+  // 앱 상태 업데이트
+  if (id === 'detail-sheet') setAppState('detail');
+  else if (id === 'add-sheet') setAppState('add');
+  history.pushState({ appState: appState }, '');
+}
+
+function closeAllSheets() {
+  document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+  document.getElementById('overlay').classList.remove('show');
+  if (addMode) {
+    addMode = false;
+    document.getElementById('add-banner').classList.remove('show');
+    if (pendingMarker) { pendingMarker.setMap(null); pendingMarker = null; }
+  }
+  setAppState('map');
+}
+
+// ─── 뒤로가기 처리 ──────────────────────────────────────
+// 앱 상태를 직접 추적하는 단순한 방식
+// 상태: 'map' | 'list' | 'detail' | 'add'
+let appState = 'map';
+
+function setAppState(state) {
+  appState = state;
+}
+
+function setupHistoryGuard() {
+  history.replaceState({ appState: 'map' }, '');
+  history.pushState({ appState: 'map' }, '');
+}
+
+function pushMapState() {
+  history.pushState({ appState: appState }, '');
+}
+
+window.addEventListener('popstate', function(e) {
+  const exitPopup = document.getElementById('exit-popup');
+
+  // 종료 팝업 열려있으면 닫기
+  if (exitPopup && exitPopup.style.display === 'flex') {
+    exitPopup.style.display = 'none';
+    history.pushState({ appState: 'map' }, '');
+    return;
+  }
+
+  // 현재 앱 상태에 따라 처리
+  if (appState === 'detail' || appState === 'add') {
+    // 상세/등록 → 닫기
+    document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+    document.getElementById('overlay').classList.remove('show');
+    if (addMode) {
+      addMode = false;
+      document.getElementById('add-banner').classList.remove('show');
+      if (pendingMarker) { pendingMarker.setMap(null); pendingMarker = null; }
+    }
+    setAppState('map');
+    history.pushState({ appState: 'map' }, '');
+
+  } else if (appState === 'list') {
+    // 목록 → 지도
+    switchView('map');
+    setAppState('map');
+    history.pushState({ appState: 'map' }, '');
+
+  } else {
+    // 지도 화면 → 종료 팝업
+    exitPopup.style.display = 'flex';
+    history.pushState({ appState: 'map' }, '');
+  }
+});
+
+function cancelExit() {
+  document.getElementById('exit-popup').style.display = 'none';
+}
+
+function confirmExit() {
+  document.getElementById('exit-popup').style.display = 'none';
+  window.close();
+  setTimeout(() => history.go(-history.length), 200);
+}
+
+// 목록 탭 전환시 history 추가
+function switchToList() {
+  setAppState('list');
+  history.pushState({ appState: 'list' }, '');
+  switchView('list');
+}
+
+function switchView(v) {
+  const mapEl = document.getElementById('map');
+  const listEl = document.getElementById('list-view');
+  document.getElementById('nav-map').classList.toggle('active', v === 'map');
+  document.getElementById('nav-list').classList.toggle('active', v === 'list');
+  if (v === 'map') {
+    listEl.classList.remove('show');
+    mapEl.style.display = 'flex';
+    setAppState('map');
+  } else {
+    mapEl.style.display = 'none';
+    listEl.classList.add('show');
+    renderList(document.getElementById('search-input').value);
+  }
+}
+
+function setRating(n) {
+  formRating = n;
+  updateStars();
+}
+
+function updateStars() {
+  document.querySelectorAll('.star-btn').forEach((b, i) => {
+    b.classList.toggle('on', i < formRating);
+  });
+}
+
+function updateCountLabel() {
+  const filtered = toilets.filter(t => activeFilter === '전체' || t.type === activeFilter);
+  document.getElementById('count-label').textContent = `${filtered.length}개 등록됨 · 공유 데이터`;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function timeAgo(ts) {
+  const d = Date.now() - ts;
+  if (d < 3600000) return `${Math.floor(d/60000)}분 전`;
+  if (d < 86400000) return `${Math.floor(d/3600000)}시간 전`;
+  return `${Math.floor(d/86400000)}일 전`;
+}
+</script>
+
+<!-- Geohash 라이브러리 -->
+<script>
+// Geohash 인코딩/디코딩 (경량 구현)
+const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+function encodeGeohash(lat, lng, precision = 6) {
+  let minLat = -90, maxLat = 90, minLng = -180, maxLng = 180;
+  let hash = '', bits = 0, evenBit = true, bitCount = 0;
+  while (hash.length < precision) {
+    if (evenBit) {
+      const mid = (minLng + maxLng) / 2;
+      if (lng >= mid) { bits = (bits << 1) | 1; minLng = mid; }
+      else { bits = bits << 1; maxLng = mid; }
+    } else {
+      const mid = (minLat + maxLat) / 2;
+      if (lat >= mid) { bits = (bits << 1) | 1; minLat = mid; }
+      else { bits = bits << 1; maxLat = mid; }
+    }
+    evenBit = !evenBit;
+    if (++bitCount === 5) {
+      hash += BASE32[bits]; bits = 0; bitCount = 0;
+    }
+  }
+  return hash;
+}
+function getGeohashRange(lat, lng, radiusKm) {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180));
+  const minHash = encodeGeohash(lat - latDelta, lng - lngDelta, 4);
+  const maxHash = encodeGeohash(lat + latDelta, lng + lngDelta, 4);
+  return { minHash, maxHash };
+}
+window._geohash = { encode: encodeGeohash, getRange: getGeohashRange };
+</script>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, updateDoc, increment, startAfter } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD-wCqbaDy-MgDn2tK8zIxJR6kYcPehYcw",
+    authDomain: "toilet-finder-d4233.firebaseapp.com",
+    projectId: "toilet-finder-d4233",
+    storageBucket: "toilet-finder-d4233.firebasestorage.app",
+    messagingSenderId: "630778274308",
+    appId: "1:630778274308:web:3fe98d6393628c8a450b51"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window._db = db;
+  window._fbFns = { collection, getDocs, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, where, limit, updateDoc, increment, startAfter };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyASSBx5OHwZIfhNIwLE0mlLS8bf0fwWZiI&callback=initMap&language=ko" async defer></script>
+
+</body>
+</html>
